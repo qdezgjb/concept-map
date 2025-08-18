@@ -343,9 +343,87 @@ body {
     margin: 0 auto;
 }
 
+/* 新增：创建选项样式 */
+.creation-options {
+    margin: 1.5rem 0;
+    text-align: left;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.creation-options p {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid #667eea;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.creation-options strong {
+    color: #667eea;
+}
+
+/* 新增：快速开始提示样式 */
+.quick-start {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.quick-start p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.quick-start strong {
+    color: #ffd700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
 /* 概念图SVG样式 */
 .concept-graph {
     background: white;
+}
+
+/* 新增：节点样式优化 - 禁用所有过渡效果防止抖动 */
+.concept-graph g[data-node-id] {
+    cursor: pointer;
+    /* 禁用过渡效果，防止抖动 */
+    /* transition: all 0.2s ease; */
+}
+
+.concept-graph g[data-node-id]:hover {
+    /* 禁用悬停时的变换效果，防止抖动 */
+    /* transform: scale(1.05); */
+}
+
+.concept-graph g[data-node-id] rect {
+    /* 禁用过渡效果，防止抖动 */
+    /* transition: all 0.2s ease; */
+}
+
+.concept-graph g[data-node-id]:hover rect {
+    /* 禁用悬停时的阴影效果，防止抖动 */
+    /* filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3)); */
+}
+
+/* 新增：连线样式优化 - 禁用过渡效果防止抖动 */
+.concept-graph line {
+    /* 禁用过渡效果，防止抖动 */
+    /* transition: stroke-width 0.2s ease; */
+}
+
+.concept-graph:hover line {
+    /* 禁用悬停时的连线加粗效果，防止抖动 */
+    /* stroke-width: 3; */
 }
 
 /* 新增：状态栏样式 */
@@ -527,4 +605,103 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* 概念图展示区域样式 */
+.concept-map-display {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 0 20px 20px 20px;
+}
+
+/* 上半部分：概念图图形窗口 */
+.graph-window {
+    background: white;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.graph-window .graph-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 6px 6px 0 0;
+    margin: 0;
+    border-bottom: none;
+}
+
+.graph-window .graph-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.graph-canvas {
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.concept-graph {
+    width: 100%;
+    height: 400px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e1e5e9;
+}
+
+/* 下半部分：AI介绍文字 */
+.ai-introduction {
+    background: white;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.intro-header {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 6px 6px 0 0;
+}
+
+.intro-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.intro-content {
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 200px;
+}
+
+.intro-text {
+    line-height: 1.6;
+    color: #333;
+    font-size: 14px;
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #e1e5e9;
+    min-height: 160px;
+}
+
+.intro-text.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-style: italic;
+}
+
+.intro-text.loading::before {
+    content: "🔄";
+    margin-right: 10px;
+    animation: spin 1s linear infinite;
 } 
