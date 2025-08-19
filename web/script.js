@@ -1096,9 +1096,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const node = currentGraphData.nodes.find(n => n.id === nodeId);
         if (!node) return;
 
-        // 获取节点尺寸
-        const nodeWidth = Math.max(80, (node.label || '').length * 8);
-        const nodeHeight = 40;
+        // 获取节点尺寸 - 从实际的rect元素获取
+        const actualRect = nodeGroup.querySelector('rect');
+        const nodeWidth = actualRect ? parseFloat(actualRect.getAttribute('width')) : Math.max(80, (node.label || '').length * 8);
+        const nodeHeight = actualRect ? parseFloat(actualRect.getAttribute('height')) : 40;
 
         // 创建8个控制手柄
         const handlePositions = [
@@ -1216,20 +1217,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const deltaX = e.clientX - window.resizeStartX;
         const deltaY = e.clientY - window.resizeStartY;
         
-        // 根据拖拽方向计算新的尺寸
-        const scaleX = 1 + (deltaX / window.originalWidth) * 0.01;
-        const scaleY = 1 + (deltaY / window.originalHeight) * 0.01;
+        // 根据拖拽方向计算新的尺寸 - 增加缩放敏感度
+        const scaleX = 1 + (deltaX / window.originalWidth) * 0.1;  // 增加敏感度从0.01到0.1
+        const scaleY = 1 + (deltaY / window.originalHeight) * 0.1; // 增加敏感度从0.01到0.1
         
         // 等比例缩放
         const scale = Math.min(scaleX, scaleY);
+        
+        // 确保缩放系数在合理范围内
+        const clampedScale = Math.max(0.5, Math.min(scale, 3.0)); // 限制缩放范围在0.5到3.0之间
+        
+        // 添加调试信息
+        console.log('缩放调试:', {
+            deltaX, deltaY,
+            originalWidth: window.originalWidth,
+            originalHeight: window.originalHeight,
+            scale, clampedScale,
+            newWidth: Math.max(80, window.originalWidth * clampedScale),
+            newHeight: Math.max(40, window.originalHeight * clampedScale)
+        });
         
         // 更新节点尺寸
         const nodeGroup = document.querySelector(`g[data-node-id="${selectedNodeId}"]`);
         if (nodeGroup) {
             const rect = nodeGroup.querySelector('rect');
             if (rect) {
-                const newWidth = Math.max(80, window.originalWidth * scale);
-                const newHeight = Math.max(40, window.originalHeight * scale);
+                const newWidth = Math.max(80, window.originalWidth * clampedScale);
+                const newHeight = Math.max(40, window.originalHeight * clampedScale);
                 
                 rect.setAttribute('width', newWidth);
                 rect.setAttribute('height', newHeight);
@@ -1239,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 更新文字大小
                 const text = nodeGroup.querySelector('text');
                 if (text) {
-                    const newFontSize = Math.max(10, 12 * scale);
+                    const newFontSize = Math.max(10, 12 * clampedScale);
                     text.setAttribute('font-size', newFontSize);
                 }
             }
