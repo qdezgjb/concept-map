@@ -456,8 +456,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             lineGroup.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
             
-            // 创建连接线路径
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            // 计算连接线中点
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            
             const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
             
             // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
@@ -471,12 +473,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const arrowX = endX - (endX - startX) * arrowOffset;
             const arrowY = endY - (endY - startY) * arrowOffset;
             
-            // 创建连接线路径（从起点到箭头位置）
-            const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
-            line.setAttribute('d', linePath);
-            line.setAttribute('stroke', '#aaa');
-            line.setAttribute('stroke-width', '2');
-            line.setAttribute('fill', 'none');
+            // 创建第一段连接线（从起点到中点）
+            const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const line1Path = `M ${startX} ${startY} L ${midX} ${midY}`;
+            line1.setAttribute('d', line1Path);
+            line1.setAttribute('stroke', '#aaa');
+            line1.setAttribute('stroke-width', '2');
+            line1.setAttribute('fill', 'none');
+            
+            // 创建第二段连接线（从中点到箭头位置）
+            const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const line2Path = `M ${midX} ${midY} L ${arrowX} ${arrowY}`;
+            line2.setAttribute('d', line2Path);
+            line2.setAttribute('stroke', '#aaa');
+            line2.setAttribute('stroke-width', '2');
+            line2.setAttribute('fill', 'none');
             
             // 创建箭头
             const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -499,9 +510,33 @@ document.addEventListener('DOMContentLoaded', function() {
             arrow.setAttribute('stroke', '#aaa');
             arrow.setAttribute('stroke-width', '1');
             
-            // 将连接线和箭头添加到组中
-            lineGroup.appendChild(line);
+            // 创建连接线标签（可编辑的文字）
+            const linkLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            linkLabel.setAttribute('x', midX);
+            linkLabel.setAttribute('y', midY - 5); // 稍微向上偏移，避免与连接线重叠
+            linkLabel.setAttribute('text-anchor', 'middle');
+            linkLabel.setAttribute('font-size', '12');
+            linkLabel.setAttribute('fill', '#333');
+            linkLabel.setAttribute('font-weight', '500');
+            linkLabel.setAttribute('pointer-events', 'all');
+            linkLabel.setAttribute('cursor', 'pointer');
+            linkLabel.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
+            linkLabel.setAttribute('data-link-label', 'true');
+            
+            // 设置标签文字内容
+            linkLabel.textContent = link.label || '双击编辑';
+            
+            // 添加双击编辑事件
+            linkLabel.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                editLinkLabel(link.id || `link-${link.source}-${link.target}`);
+            });
+            
+            // 将连接线、箭头和标签添加到组中
+            lineGroup.appendChild(line1);
+            lineGroup.appendChild(line2);
             lineGroup.appendChild(arrow);
+            lineGroup.appendChild(linkLabel);
             svg.appendChild(lineGroup);
         });
 
@@ -770,11 +805,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!sourceNode || !targetNode) return;
 
-        // 获取连接线和箭头元素
-        const line = linkGroup.querySelector('path');
-        const arrow = linkGroup.querySelector('path:last-child');
+        // 获取连接线段、箭头和标签元素
+        const line1 = linkGroup.querySelector('path:nth-child(1)'); // 第一段连接线
+        const line2 = linkGroup.querySelector('path:nth-child(2)'); // 第二段连接线
+        const arrow = linkGroup.querySelector('path:nth-child(3)'); // 箭头
+        const linkLabel = linkGroup.querySelector('text'); // 标签
         
-        if (!line || !arrow) return;
+        if (!line1 || !line2 || !arrow || !linkLabel) return;
 
         // 计算连线起点和终点（矩形节点边缘）
         const sourceWidth = sourceNode.width || Math.max(80, (sourceNode.label || '').length * 8);
@@ -833,9 +870,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const arrowX = endX - (endX - startX) * arrowOffset;
         const arrowY = endY - (endY - startY) * arrowOffset;
         
-        // 更新连接线路径（从起点到箭头位置）
-        const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
-        line.setAttribute('d', linePath);
+        // 计算连接线中点
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        
+        // 更新第一段连接线（从起点到中点）
+        const line1Path = `M ${startX} ${startY} L ${midX} ${midY}`;
+        line1.setAttribute('d', line1Path);
+        
+        // 更新第二段连接线（从中点到箭头位置）
+        const line2Path = `M ${midX} ${midY} L ${arrowX} ${arrowY}`;
+        line2.setAttribute('d', line2Path);
+        
+        // 更新标签位置
+        linkLabel.setAttribute('x', midX);
+        linkLabel.setAttribute('y', midY - 5);
         
         // 更新箭头位置
         const angle = Math.atan2(endY - startY, endX - startX);
@@ -981,6 +1030,103 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 页面卸载时清理
     window.addEventListener('beforeunload', cleanup);
+
+    // 双击编辑连接线标签
+    function editLinkLabel(linkId) {
+        const link = currentGraphData.links.find(l => (l.id || `link-${l.source}-${l.target}`) === linkId);
+        if (!link) return;
+
+        // 获取SVG画布和其位置信息
+        const conceptMapDisplay = document.querySelector('.concept-map-display');
+        const svg = conceptMapDisplay.querySelector('.concept-graph');
+        const svgRect = svg.getBoundingClientRect();
+
+        // 找到连接线标签元素
+        const linkLabel = svg.querySelector(`text[data-link-id="${linkId}"]`);
+        if (!linkLabel) return;
+
+        // 获取标签的位置
+        const labelX = parseFloat(linkLabel.getAttribute('x'));
+        const labelY = parseFloat(linkLabel.getAttribute('y'));
+
+        // 计算输入框在页面中的绝对位置
+        const inputLeft = svgRect.left + labelX - 50; // 输入框宽度的一半
+        const inputTop = svgRect.top + labelY - 15;   // 输入框高度的一半
+
+        // 创建输入框
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = link.label || '';
+        input.style.cssText = `
+            position: fixed;
+            left: ${inputLeft}px;
+            top: ${inputTop}px;
+            width: 100px;
+            height: 30px;
+            border: 2px solid #667eea;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-family: inherit;
+            z-index: 1000;
+            background: white;
+            text-align: center;
+            box-sizing: border-box;
+            outline: none;
+        `;
+
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+
+        // 保存编辑结果
+        function saveEdit() {
+            const newLabel = input.value.trim();
+            link.label = newLabel;
+            
+            // 更新标签显示
+            linkLabel.textContent = newLabel || '双击编辑';
+            
+            // 移除输入框
+            document.body.removeChild(input);
+            
+            // 保存到历史记录
+            saveToHistory(currentGraphData);
+            showMessage('连接线标签已更新', 'info');
+        }
+
+        // 处理键盘事件
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveEdit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                document.body.removeChild(input);
+            }
+        });
+
+        // 处理失焦事件
+        input.addEventListener('blur', function() {
+            if (document.body.contains(input)) {
+                saveEdit();
+            }
+        });
+
+        // 动态调整输入框位置（处理窗口滚动和缩放）
+        function updateInputPosition() {
+            if (document.body.contains(input)) {
+                const newSvgRect = svg.getBoundingClientRect();
+                const newInputLeft = newSvgRect.left + labelX - 50;
+                const newInputTop = newSvgRect.top + labelY - 15;
+                input.style.left = newInputLeft + 'px';
+                input.style.top = newInputTop + 'px';
+            }
+        }
+
+        window.addEventListener('resize', updateInputPosition);
+        window.addEventListener('scroll', updateInputPosition);
+    }
 
     // 双击编辑节点文字
     function editNodeText(nodeId) {
