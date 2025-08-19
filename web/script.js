@@ -1184,21 +1184,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 添加调整大小的事件监听器
     function addResizeHandlers(handle, direction, nodeId) {
-        let isResizing = false;
-        let startX, startY, originalWidth, originalHeight;
-
         handle.addEventListener('mousedown', function(e) {
             e.stopPropagation();
             e.preventDefault();
             
-            isResizing = true;
-            startX = e.clientX;
-            startY = e.clientY;
+            // 设置全局调整大小状态
+            window.isResizing = true;
+            window.resizeStartX = e.clientX;
+            window.resizeStartY = e.clientY;
             
             const node = currentGraphData.nodes.find(n => n.id === nodeId);
             if (node) {
-                originalWidth = Math.max(80, (node.label || '').length * 8);
-                originalHeight = 40;
+                window.originalWidth = Math.max(80, (node.label || '').length * 8);
+                window.originalHeight = 40;
             }
             
             // 添加全局调整大小事件监听器
@@ -1213,14 +1211,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 处理调整大小
     function handleResize(e) {
-        if (!isResizing) return;
+        if (!window.isResizing) return;
         
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
+        const deltaX = e.clientX - window.resizeStartX;
+        const deltaY = e.clientY - window.resizeStartY;
         
         // 根据拖拽方向计算新的尺寸
-        const scaleX = 1 + (deltaX / originalWidth) * 0.01;
-        const scaleY = 1 + (deltaY / originalHeight) * 0.01;
+        const scaleX = 1 + (deltaX / window.originalWidth) * 0.01;
+        const scaleY = 1 + (deltaY / window.originalHeight) * 0.01;
         
         // 等比例缩放
         const scale = Math.min(scaleX, scaleY);
@@ -1230,8 +1228,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nodeGroup) {
             const rect = nodeGroup.querySelector('rect');
             if (rect) {
-                const newWidth = Math.max(80, originalWidth * scale);
-                const newHeight = Math.max(40, originalHeight * scale);
+                const newWidth = Math.max(80, window.originalWidth * scale);
+                const newHeight = Math.max(40, window.originalHeight * scale);
                 
                 rect.setAttribute('width', newWidth);
                 rect.setAttribute('height', newHeight);
@@ -1250,9 +1248,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 处理调整大小结束
     function handleResizeEnd(e) {
-        if (!isResizing) return;
+        if (!window.isResizing) return;
         
-        isResizing = false;
+        window.isResizing = false;
         
         // 恢复页面样式
         document.body.style.userSelect = '';
