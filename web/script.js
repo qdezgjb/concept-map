@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 // 计算对应的X坐标（保持连线方向）
                 const slope = reverseDx / reverseDy;
-                endX = target.x + slope * (endY - targetNode.y);
+                endX = target.x + slope * (endY - target.y);
                 // 确保X坐标在节点宽度范围内
                 endX = Math.max(target.x - targetWidth / 2, Math.min(target.x + targetWidth / 2, endX));
             }
@@ -754,8 +754,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // 只重新绘制连线，不重新绘制整个图形，保持选中状态
-        redrawAllLinks();
+        // 不需要重新绘制连线，因为拖动过程中已经实时更新了
+        // 连接线位置已经在拖动过程中通过updateConnectedLinks更新
 
         // 移除全局事件监听器
         document.removeEventListener('mousemove', handleDrag);
@@ -901,8 +901,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const svg = document.querySelector('.concept-graph');
         if (!svg) return;
 
-        // 清除所有现有连线
-        const existingLinks = svg.querySelectorAll('line');
+        // 清除所有现有连线（现在使用g元素）
+        const existingLinks = svg.querySelectorAll('g[data-link-id]');
         existingLinks.forEach(link => link.remove());
 
         // 重新绘制所有连线
