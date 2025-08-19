@@ -727,8 +727,8 @@ document.addEventListener('DOMContentLoaded', function() {
             nodeGroup.setAttribute('transform', `translate(${newX}, ${newY})`);
         }
 
-        // 拖动过程中不更新连线，避免抖动
-        // 连线将在拖动结束后一次性更新
+        // 实时更新相关连接线位置
+        updateConnectedLinks(selectedNodeId);
     }
 
     // 处理拖动结束
@@ -778,25 +778,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 更新这些连线的位置
         relatedLinks.forEach(link => {
-            const linkElement = svg.querySelector(`line[data-link-id="${link.id}"]`);
-            if (linkElement) {
-                updateLinkPosition(linkElement, link);
+            const linkGroup = svg.querySelector(`g[data-link-id="${link.id}"]`);
+            if (linkGroup) {
+                updateLinkPosition(linkGroup, link);
             }
         });
     }
 
     // 更新单个连线的位置
-    function updateLinkPosition(linkElement, link) {
+    function updateLinkPosition(linkGroup, link) {
         const sourceNode = currentGraphData.nodes.find(n => n.id === link.source);
         const targetNode = currentGraphData.nodes.find(n => n.id === link.target);
         
         if (!sourceNode || !targetNode) return;
 
+        // 获取连接线和箭头元素
+        const line = linkGroup.querySelector('path');
+        const arrow = linkGroup.querySelector('path:last-child');
+        
+        if (!line || !arrow) return;
+
         // 计算连线起点和终点（矩形节点边缘）
-        const sourceWidth = Math.max(80, (sourceNode.label || '').length * 8);
-        const sourceHeight = 40;
-        const targetWidth = Math.max(80, (targetNode.label || '').length * 8);
-        const targetHeight = 40;
+        const sourceWidth = sourceNode.width || Math.max(80, (sourceNode.label || '').length * 8);
+        const sourceHeight = sourceNode.height || 40;
+        const targetWidth = targetNode.width || Math.max(80, (targetNode.label || '').length * 8);
+        const targetHeight = targetNode.height || 40;
 
         // 计算连线起点（从源节点最接近目标节点的边缘开始）
         let startX = sourceNode.x, startY = sourceNode.y;
@@ -862,11 +868,32 @@ document.addEventListener('DOMContentLoaded', function() {
             endX = Math.max(targetNode.x - targetWidth / 2, Math.min(targetNode.x + targetWidth / 2, endX));
         }
 
-        // 更新连线位置
-        linkElement.setAttribute('x1', startX);
-        linkElement.setAttribute('y1', startY);
-        linkElement.setAttribute('x2', endX);
-        linkElement.setAttribute('y2', endY);
+        // 计算箭头位置（在终点前留出箭头空间）
+        const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+        const arrowLength = 12; // 箭头长度
+        const arrowOffset = arrowLength / lineLength; // 箭头偏移比例
+        
+        const arrowX = endX - (endX - startX) * arrowOffset;
+        const arrowY = endY - (endY - startY) * arrowOffset;
+        
+        // 更新连接线路径（从起点到箭头位置）
+        const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
+        line.setAttribute('d', linePath);
+        
+        // 更新箭头位置
+        const angle = Math.atan2(endY - startY, endX - startX);
+        const arrowAngle1 = angle + Math.PI / 6; // 箭头一边的角度
+        const arrowAngle2 = angle - Math.PI / 6; // 箭头另一边的角度
+        
+        // 计算箭头的三个顶点
+        const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
+        const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
+        const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
+        const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
+        
+        // 更新箭头路径
+        const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
+        arrow.setAttribute('d', arrowPath);
     }
 
     // 重新绘制所有连线
