@@ -547,8 +547,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 editNodeText(node.id);
             });
 
-            // 添加拖动功能
-            g.addEventListener('mousedown', function(e) {
+                    // 添加拖动功能 - 只在节点内部触发
+            rect.addEventListener('mousedown', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
                 
@@ -556,8 +556,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 startDrag(node.id, e.clientX, e.clientY);
             });
 
-            // 确保g元素能够接收事件
+            // 确保g元素能够接收事件，但拖动只在节点内部触发
             g.style.pointerEvents = 'all';
+            // 防止节点组本身触发拖动
+            g.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                // 不阻止默认行为，让子元素处理
+            });
 
             // 完全禁用悬停效果，避免抖动
             // g.addEventListener('mouseenter', function() {
@@ -1097,16 +1102,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 创建8个控制手柄
         const handlePositions = [
-            // 四个角落的箭头（用于调整大小）
-            { x: -nodeWidth/2, y: -nodeHeight/2, type: 'resize', direction: 'top-left' },
-            { x: nodeWidth/2, y: -nodeHeight/2, type: 'resize', direction: 'top-right' },
-            { x: nodeWidth/2, y: nodeHeight/2, type: 'resize', direction: 'bottom-right' },
-            { x: -nodeWidth/2, y: nodeHeight/2, type: 'resize', direction: 'bottom-left' },
+            // 四个角落的箭头（用于调整大小）- 移到节点外部
+            { x: -nodeWidth/2 - 15, y: -nodeHeight/2 - 15, type: 'resize', direction: 'top-left' },
+            { x: nodeWidth/2 + 15, y: -nodeHeight/2 - 15, type: 'resize', direction: 'top-right' },
+            { x: nodeWidth/2 + 15, y: nodeHeight/2 + 15, type: 'resize', direction: 'bottom-right' },
+            { x: -nodeWidth/2 - 15, y: nodeHeight/2 + 15, type: 'resize', direction: 'bottom-left' },
             // 四个边缘的箭头（用于创建连接线）
-            { x: 0, y: -nodeHeight/2, type: 'connect', direction: 'top' },
-            { x: nodeWidth/2, y: 0, type: 'connect', direction: 'right' },
-            { x: 0, y: nodeHeight/2, type: 'connect', direction: 'bottom' },
-            { x: -nodeWidth/2, y: 0, type: 'connect', direction: 'left' }
+            { x: 0, y: -nodeHeight/2 - 10, type: 'connect', direction: 'top' },
+            { x: nodeWidth/2 + 10, y: 0, type: 'connect', direction: 'right' },
+            { x: 0, y: nodeHeight/2 + 10, type: 'connect', direction: 'bottom' },
+            { x: -nodeWidth/2 - 10, y: 0, type: 'connect', direction: 'left' }
         ];
 
         handlePositions.forEach((pos, index) => {
@@ -1125,16 +1130,16 @@ document.addEventListener('DOMContentLoaded', function() {
         handle.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
 
         if (pos.type === 'resize') {
-            // 创建调整大小的手柄（小方块）
+            // 创建调整大小的手柄（小方块）- 移到节点外部
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('width', '8');
-            rect.setAttribute('height', '8');
-            rect.setAttribute('x', '-4');
-            rect.setAttribute('y', '-4');
+            rect.setAttribute('width', '12');
+            rect.setAttribute('height', '12');
+            rect.setAttribute('x', '-6');
+            rect.setAttribute('y', '-6');
             rect.setAttribute('fill', '#ffd700');
             rect.setAttribute('stroke', '#333');
-            rect.setAttribute('stroke-width', '1');
-            rect.setAttribute('cursor', 'pointer');
+            rect.setAttribute('stroke-width', '2');
+            rect.setAttribute('cursor', 'nw-resize');
             handle.appendChild(rect);
 
             // 添加调整大小的事件监听器
@@ -1156,15 +1161,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         arrow.setAttribute('fill', '#007bff');
         arrow.setAttribute('stroke', '#333');
-        arrow.setAttribute('stroke-width', '1');
+        arrow.setAttribute('stroke-width', '2');
         arrow.setAttribute('cursor', 'crosshair');
 
-        // 根据方向设置箭头路径
+        // 根据方向设置箭头路径 - 稍微增大箭头
         const arrowPaths = {
-            'top': 'M0,-6 L-3,0 L3,0 Z',
-            'right': 'M6,0 L0,-3 L0,3 Z',
-            'bottom': 'M0,6 L-3,0 L3,0 Z',
-            'left': 'M-6,0 L0,-3 L0,3 Z'
+            'top': 'M0,-8 L-4,0 L4,0 Z',
+            'right': 'M8,0 L0,-4 L0,4 Z',
+            'bottom': 'M0,8 L-4,0 L4,0 Z',
+            'left': 'M-8,0 L0,-4 L0,4 Z'
         };
 
         arrow.setAttribute('d', arrowPaths[direction] || arrowPaths['top']);

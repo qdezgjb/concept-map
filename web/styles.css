@@ -704,4 +704,29 @@ body {
     content: "🔄";
     margin-right: 10px;
     animation: spin 1s linear infinite;
+}
+
+/* 新增：节点控制手柄样式 */
+.node-handle {
+    pointer-events: all;
+}
+
+.node-handle rect {
+    transition: all 0.2s ease;
+}
+
+.node-handle:hover rect {
+    fill: #ffed4e;
+    stroke: #000;
+    stroke-width: 3;
+}
+
+.node-handle path {
+    transition: all 0.2s ease;
+}
+
+.node-handle:hover path {
+    fill: #0056b3;
+    stroke: #000;
+    stroke-width: 3;
 } 
