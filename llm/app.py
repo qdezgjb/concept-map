@@ -171,9 +171,17 @@ if __name__ == '__main__':
     import time
     import webbrowser
     
+    # 使用全局标志防止重复打开浏览器
+    browser_opened = False
+    
     def open_browser():
         """立即打开浏览器"""
-        # 去掉等待时间，立即打开浏览器
+        global browser_opened
+        
+        # 防止重复打开浏览器
+        if browser_opened:
+            return
+        
         try:
             # 获取当前工作目录的上级目录（web文件夹所在位置）
             import os
@@ -190,13 +198,20 @@ if __name__ == '__main__':
                 # 如果文件不存在，打开本地服务地址
                 webbrowser.open(f"http://localhost:{port}")
                 logger.info(f"已自动打开浏览器: http://localhost:{port}")
+            
+            # 标记浏览器已打开
+            browser_opened = True
+            
         except Exception as e:
             logger.error(f"自动打开浏览器失败: {e}")
     
-    # 在新线程中启动浏览器
-    browser_thread = threading.Thread(target=open_browser, daemon=True)
-    browser_thread.start()
-    
-    logger.info("服务启动中，立即自动打开浏览器...")
+    # 只在主进程中打开浏览器（避免debug模式下的重复打开）
+    if not debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        # 在新线程中启动浏览器
+        browser_thread = threading.Thread(target=open_browser, daemon=True)
+        browser_thread.start()
+        logger.info("服务启动中，立即自动打开浏览器...")
+    else:
+        logger.info("调试模式下，跳过自动打开浏览器（避免重复打开）")
     
     app.run(host='0.0.0.0', port=port, debug=debug) 
