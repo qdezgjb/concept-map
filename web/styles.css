@@ -729,4 +729,10 @@ body {
     fill: #0056b3;
     stroke: #000;
     stroke-width: 3;
+}
+
+/* 虚拟连接线样式 */
+.virtual-connection-line {
+    pointer-events: none;
+    z-index: 1000;
 } 

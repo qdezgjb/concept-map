@@ -477,15 +477,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 endX = Math.max(target.x - targetWidth / 2, Math.min(target.x + targetWidth / 2, endX));
             }
             
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', startX);
-            line.setAttribute('y1', startY);
-            line.setAttribute('x2', endX);
-            line.setAttribute('y2', endY);
+            // 创建带箭头的连接线
+            const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            lineGroup.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
+            
+            // 创建连接线路径
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            
+            // 计算箭头位置（在终点前留出箭头空间）
+            const arrowLength = 12; // 箭头长度
+            const arrowWidth = 8;   // 箭头宽度
+            const arrowOffset = arrowLength / lineLength; // 箭头偏移比例
+            
+            const arrowX = endX - (endX - startX) * arrowOffset;
+            const arrowY = endY - (endY - startY) * arrowOffset;
+            
+            // 创建连接线路径（从起点到箭头位置）
+            const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
+            line.setAttribute('d', linePath);
             line.setAttribute('stroke', '#aaa');
             line.setAttribute('stroke-width', '2');
-            line.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
-            svg.appendChild(line);
+            line.setAttribute('fill', 'none');
+            
+            // 创建箭头
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // 计算箭头方向
+            const angle = Math.atan2(endY - startY, endX - startX);
+            const arrowAngle1 = angle + Math.PI / 6; // 箭头一边的角度
+            const arrowAngle2 = angle - Math.PI / 6; // 箭头另一边的角度
+            
+            // 计算箭头的三个顶点
+            const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
+            const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
+            const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
+            const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
+            
+            // 创建箭头路径
+            const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
+            arrow.setAttribute('d', arrowPath);
+            arrow.setAttribute('fill', '#aaa');
+            arrow.setAttribute('stroke', '#aaa');
+            arrow.setAttribute('stroke-width', '1');
+            
+            // 将连接线和箭头添加到组中
+            lineGroup.appendChild(line);
+            lineGroup.appendChild(arrow);
+            svg.appendChild(lineGroup);
         });
 
         // 再渲染节点
@@ -916,15 +955,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 endX = Math.max(targetNode.x - targetWidth / 2, Math.min(targetNode.x + targetWidth / 2, endX));
             }
             
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('x1', startX);
-            line.setAttribute('y1', startY);
-            line.setAttribute('x2', endX);
-            line.setAttribute('y2', endY);
+            // 创建带箭头的连接线
+            const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            lineGroup.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
+            
+            // 创建连接线路径
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            
+            // 计算箭头位置（在终点前留出箭头空间）
+            const arrowLength = 12; // 箭头长度
+            const arrowWidth = 8;   // 箭头宽度
+            const arrowOffset = arrowLength / lineLength; // 箭头偏移比例
+            
+            const arrowX = endX - (endX - startX) * arrowOffset;
+            const arrowY = endY - (endY - startY) * arrowOffset;
+            
+            // 创建连接线路径（从起点到箭头位置）
+            const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
+            line.setAttribute('d', linePath);
             line.setAttribute('stroke', '#aaa');
             line.setAttribute('stroke-width', '2');
-            line.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
-            svg.appendChild(line);
+            line.setAttribute('fill', 'none');
+            
+            // 创建箭头
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // 计算箭头方向
+            const angle = Math.atan2(endY - startY, endX - startX);
+            const arrowAngle1 = angle + Math.PI / 6; // 箭头一边的角度
+            const arrowAngle2 = angle - Math.PI / 6; // 箭头另一边的角度
+            
+            // 计算箭头的三个顶点
+            const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
+            const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
+            const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
+            const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
+            
+            // 创建箭头路径
+            const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
+            arrow.setAttribute('d', arrowPath);
+            arrow.setAttribute('fill', '#aaa');
+            arrow.setAttribute('stroke', '#aaa');
+            arrow.setAttribute('stroke-width', '1');
+            
+            // 将连接线和箭头添加到组中
+            lineGroup.appendChild(line);
+            lineGroup.appendChild(arrow);
+            svg.appendChild(lineGroup);
         });
     }
 
@@ -1326,14 +1404,33 @@ document.addEventListener('DOMContentLoaded', function() {
         showMessage('节点大小已调整', 'info');
     }
 
-    // 添加连接线的事件监听器
+    // 添加连接线的事件监听器 - 改为拖拽模式
     function addConnectionHandlers(handle, direction, nodeId) {
-        handle.addEventListener('click', function(e) {
+        let isDragging = false;
+        let virtualLine = null;
+        let startX, startY;
+        
+        handle.addEventListener('mousedown', function(e) {
             e.stopPropagation();
             e.preventDefault();
             
-            // 进入连接线创建模式
-            enterConnectionMode(nodeId, direction);
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            // 进入拖拽连接线创建模式
+            enterConnectionDragMode(nodeId, direction, e);
+            
+            // 创建虚拟连接线
+            window.virtualLine = createVirtualConnectionLine(nodeId, direction, e.clientX, e.clientY);
+            
+            // 添加全局拖拽事件监听器
+            document.addEventListener('mousemove', handleConnectionDrag);
+            document.addEventListener('mouseup', handleConnectionDragEnd);
+            
+            // 防止文本选择
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'crosshair';
         });
     }
 
@@ -2074,5 +2171,152 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             showMessage('概念图导出成功！', 'success');
         }, 1000);
+    }
+    
+    // 新增：拖拽连接线创建功能
+    
+    // 进入拖拽连接线创建模式
+    function enterConnectionDragMode(sourceNodeId, direction, e) {
+        // 设置连接线创建状态
+        isLinkCreationMode = true;
+        linkSourceNodeId = sourceNodeId;
+        linkTargetNodeId = null;
+        
+        // 更新按钮状态
+        addLinkBtn.textContent = '取消连线';
+        addLinkBtn.style.backgroundColor = '#dc3545';
+        
+        // 显示提示信息
+        showMessage(`从节点 ${sourceNodeId} 的 ${direction} 方向拖拽创建连线，松开鼠标到目标节点上完成连接`, 'info');
+        
+        // 修改按钮点击事件，用于取消连线创建
+        addLinkBtn.removeEventListener('click', addNewLink);
+        addLinkBtn.addEventListener('click', exitConnectionMode);
+    }
+    
+    // 创建虚拟连接线
+    function createVirtualConnectionLine(sourceNodeId, direction, startX, startY) {
+        const svg = document.querySelector('.concept-graph');
+        if (!svg) return null;
+        
+        // 创建虚拟连接线组
+        const virtualLineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        virtualLineGroup.setAttribute('class', 'virtual-connection-line');
+        
+        // 创建虚拟连接线路径
+        const virtualLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        virtualLine.setAttribute('stroke', '#ff6b6b');
+        virtualLine.setAttribute('stroke-width', '2');
+        virtualLine.setAttribute('stroke-dasharray', '5,5');
+        virtualLine.setAttribute('opacity', '0.7');
+        virtualLine.setAttribute('fill', 'none');
+        
+        // 设置起点（从源节点的边缘开始）
+        const sourceNode = currentGraphData.nodes.find(n => n.id === sourceNodeId);
+        if (sourceNode) {
+            const nodeWidth = sourceNode.width || Math.max(80, (sourceNode.label || '').length * 8);
+            const nodeHeight = sourceNode.height || 40;
+            
+            let startX, startY;
+            switch (direction) {
+                case 'top':
+                    startX = sourceNode.x;
+                    startY = sourceNode.y - nodeHeight / 2;
+                    break;
+                case 'right':
+                    startX = sourceNode.x + nodeWidth / 2;
+                    startY = sourceNode.y;
+                    break;
+                case 'bottom':
+                    startX = sourceNode.x;
+                    startY = sourceNode.y + nodeHeight / 2;
+                    break;
+                case 'left':
+                    startX = sourceNode.x - nodeWidth / 2;
+                    startY = sourceNode.y;
+                    break;
+            }
+            
+            // 创建初始路径（从起点到起点，形成点）
+            const initialPath = `M ${startX} ${startY} L ${startX} ${startY}`;
+            virtualLine.setAttribute('d', initialPath);
+            
+            // 存储起点信息，供拖拽时使用
+            virtualLine.setAttribute('data-start-x', startX);
+            virtualLine.setAttribute('data-start-y', startY);
+        }
+        
+        // 将虚拟连接线添加到组中
+        virtualLineGroup.appendChild(virtualLine);
+        svg.appendChild(virtualLineGroup);
+        return virtualLineGroup;
+    }
+    
+    // 处理连接线拖拽
+    function handleConnectionDrag(e) {
+        if (!isLinkCreationMode || !window.virtualLine) return;
+        
+        const virtualLineGroup = window.virtualLine;
+        if (virtualLineGroup) {
+            const virtualLine = virtualLineGroup.querySelector('path');
+            if (virtualLine) {
+                // 将鼠标坐标转换为SVG坐标
+                const svg = document.querySelector('.concept-graph');
+                if (svg) {
+                    const pt = svg.createSVGPoint();
+                    pt.x = e.clientX;
+                    pt.y = e.clientY;
+                    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+                    
+                    // 获取起点坐标
+                    const startX = parseFloat(virtualLine.getAttribute('data-start-x'));
+                    const startY = parseFloat(virtualLine.getAttribute('data-start-y'));
+                    
+                    // 更新虚拟连接线路径
+                    const path = `M ${startX} ${startY} L ${svgPt.x} ${svgPt.y}`;
+                    virtualLine.setAttribute('d', path);
+                }
+            }
+        }
+    }
+    
+    // 处理连接线拖拽结束
+    function handleConnectionDragEnd(e) {
+        if (!isLinkCreationMode) return;
+        
+        // 恢复页面样式
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        
+        // 移除全局事件监听器
+        document.removeEventListener('mousemove', handleConnectionDrag);
+        document.removeEventListener('mouseup', handleConnectionDragEnd);
+        
+        // 检查鼠标是否在目标节点上
+        const targetElement = document.elementFromPoint(e.clientX, e.clientY);
+        const targetNodeGroup = targetElement?.closest('g[data-node-id]');
+        
+        if (targetNodeGroup) {
+            const targetNodeId = targetNodeGroup.getAttribute('data-node-id');
+            
+            if (targetNodeId !== linkSourceNodeId) {
+                // 创建连线
+                createLink(linkSourceNodeId, targetNodeId);
+                showMessage(`已创建从节点 ${linkSourceNodeId} 到节点 ${targetNodeId} 的连接线`, 'success');
+            } else {
+                showMessage('不能连接到同一个节点', 'warning');
+            }
+        } else {
+            showMessage('请拖拽到目标节点上完成连接', 'warning');
+        }
+        
+        // 移除虚拟连接线
+        if (window.virtualLine) {
+            window.virtualLine.remove();
+            window.virtualLine = null;
+        }
+        
+        // 退出连接线创建模式
+        exitConnectionMode();
     }
 }); 
