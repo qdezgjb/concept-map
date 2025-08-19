@@ -529,6 +529,15 @@ document.addEventListener('DOMContentLoaded', function() {
             text.setAttribute('y', 4); // 相对于组的中心位置
             text.setAttribute('text-anchor', 'middle');
             text.setAttribute('font-size', node.fontSize || '12'); // 优先使用保存的字体大小
+            
+            // 添加调试信息
+            if (node.fontSize) {
+                console.log('节点文字大小已恢复:', {
+                    nodeId: node.id,
+                    savedFontSize: node.fontSize,
+                    appliedFontSize: node.fontSize || '12'
+                });
+            }
             text.setAttribute('fill', 'white');
             text.setAttribute('font-weight', '500');
             text.setAttribute('pointer-events', 'none'); // 防止文字阻挡点击
@@ -1259,8 +1268,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // 更新文字大小 - 让文字缩放更加明显
                 const text = nodeGroup.querySelector('text');
+                let newFontSize = 12; // 默认字体大小
                 if (text) {
-                    const newFontSize = Math.max(8, 12 * clampedScale);
+                    newFontSize = Math.max(8, 12 * clampedScale);
                     text.setAttribute('font-size', newFontSize);
                     
                     // 同时调整文字位置，确保在节点中心
@@ -1274,6 +1284,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     node.height = newHeight;
                     node.fontSize = newFontSize;
                     node.scale = clampedScale;
+                    
+                    // 添加调试信息
+                    console.log('节点缩放数据已保存:', {
+                        nodeId: selectedNodeId,
+                        width: node.width,
+                        height: node.height,
+                        fontSize: node.fontSize,
+                        scale: node.scale
+                    });
                 }
             }
         }
