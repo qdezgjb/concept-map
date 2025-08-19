@@ -493,9 +493,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('data-node-id', node.id);
 
-            // 计算节点尺寸
-            const nodeWidth = Math.max(80, (node.label || `节点${idx + 1}`).length * 8);
-            const nodeHeight = 40;
+            // 计算节点尺寸 - 优先使用保存的尺寸，否则使用默认值
+            const nodeWidth = node.width || Math.max(80, (node.label || `节点${idx + 1}`).length * 8);
+            const nodeHeight = node.height || 40;
             const radius = 8; // 圆角半径
 
             // 设置组的位置
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
             text.setAttribute('x', 0); // 相对于组的中心位置
             text.setAttribute('y', 4); // 相对于组的中心位置
             text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('font-size', '12');
+            text.setAttribute('font-size', node.fontSize || '12'); // 优先使用保存的字体大小
             text.setAttribute('fill', 'white');
             text.setAttribute('font-weight', '500');
             text.setAttribute('pointer-events', 'none'); // 防止文字阻挡点击
@@ -1096,10 +1096,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const node = currentGraphData.nodes.find(n => n.id === nodeId);
         if (!node) return;
 
-        // 获取节点尺寸 - 从实际的rect元素获取
-        const actualRect = nodeGroup.querySelector('rect');
-        const nodeWidth = actualRect ? parseFloat(actualRect.getAttribute('width')) : Math.max(80, (node.label || '').length * 8);
-        const nodeHeight = actualRect ? parseFloat(actualRect.getAttribute('height')) : 40;
+        // 获取节点尺寸 - 优先使用保存的尺寸，否则从实际的rect元素获取
+        const nodeData = currentGraphData.nodes.find(n => n.id === nodeId);
+        const nodeWidth = nodeData?.width || (() => {
+            const actualRect = nodeGroup.querySelector('rect');
+            return actualRect ? parseFloat(actualRect.getAttribute('width')) : Math.max(80, (nodeData?.label || '').length * 8);
+        })();
+        const nodeHeight = nodeData?.height || (() => {
+            const actualRect = nodeGroup.querySelector('rect');
+            return actualRect ? parseFloat(actualRect.getAttribute('height')) : 40;
+        })();
 
         // 创建8个控制手柄
         const handlePositions = [
@@ -1259,6 +1265,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // 同时调整文字位置，确保在节点中心
                     text.setAttribute('y', 4); // 保持垂直居中
+                }
+                
+                // 将缩放后的尺寸保存到节点数据中
+                const node = currentGraphData.nodes.find(n => n.id === selectedNodeId);
+                if (node) {
+                    node.width = newWidth;
+                    node.height = newHeight;
+                    node.fontSize = newFontSize;
+                    node.scale = clampedScale;
                 }
             }
         }
