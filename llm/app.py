@@ -172,8 +172,8 @@ if __name__ == '__main__':
     import webbrowser
     
     def open_browser():
-        """延迟打开浏览器，确保服务已启动"""
-        time.sleep(3)  # 等待3秒让服务完全启动
+        """立即打开浏览器"""
+        # 去掉等待时间，立即打开浏览器
         try:
             # 获取当前工作目录的上级目录（web文件夹所在位置）
             import os
@@ -197,6 +197,6 @@ if __name__ == '__main__':
     browser_thread = threading.Thread(target=open_browser, daemon=True)
     browser_thread.start()
     
-    logger.info("服务启动中，3秒后自动打开浏览器...")
+    logger.info("服务启动中，立即自动打开浏览器...")
     
     app.run(host='0.0.0.0', port=port, debug=debug) 
