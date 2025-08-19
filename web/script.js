@@ -413,68 +413,43 @@ document.addEventListener('DOMContentLoaded', function() {
             const targetWidth = Math.max(80, (target.label || '').length * 8);
             const targetHeight = 40;
             
-            // 计算连线起点（从源节点最接近目标节点的边缘开始）
-            let startX = source.x, startY = source.y;
+            // 计算连线起点和终点（始终连接到节点边缘的中点）
             const dx = target.x - source.x;
             const dy = target.y - source.y;
             
-            // 计算源节点边缘的交点
+            let startX, startY, endX, endY;
+            
+            // 确定连接方向并计算边缘中点
             if (Math.abs(dx) > Math.abs(dy)) {
-                // 水平距离更大，从左右边缘开始
+                // 水平距离更大，从左右边缘连接
                 if (dx > 0) {
-                    startX = source.x + sourceWidth / 2;
+                    // 源节点在左，目标节点在右
+                    startX = source.x + sourceWidth / 2;  // 源节点右边缘中点
+                    startY = source.y;                    // 源节点垂直中点
+                    endX = target.x - targetWidth / 2;    // 目标节点左边缘中点
+                    endY = target.y;                      // 目标节点垂直中点
                 } else {
-                    startX = source.x - sourceWidth / 2;
+                    // 源节点在右，目标节点在左
+                    startX = source.x - sourceWidth / 2;  // 源节点左边缘中点
+                    startY = source.y;                    // 源节点垂直中点
+                    endX = target.x + targetWidth / 2;    // 目标节点右边缘中点
+                    endY = target.y;                      // 目标节点垂直中点
                 }
-                // 计算对应的Y坐标（保持连线方向）
-                const slope = dy / dx;
-                startY = source.y + slope * (startX - source.x);
-                // 确保Y坐标在节点高度范围内
-                startY = Math.max(source.y - sourceHeight / 2, Math.min(source.y + sourceHeight / 2, startY));
             } else {
-                // 垂直距离更大，从上下边缘开始
+                // 垂直距离更大，从上下边缘连接
                 if (dy > 0) {
-                    startY = source.y + sourceHeight / 2;
+                    // 源节点在上，目标节点在下
+                    startX = source.x;                    // 源节点水平中点
+                    startY = source.y + sourceHeight / 2; // 源节点下边缘中点
+                    endX = target.x;                      // 目标节点水平中点
+                    endY = target.y - targetHeight / 2;   // 目标节点上边缘中点
                 } else {
-                    startY = source.y - sourceHeight / 2;
+                    // 源节点在下，目标节点在上
+                    startX = source.x;                    // 源节点水平中点
+                    startY = source.y - sourceHeight / 2; // 源节点上边缘中点
+                    endX = target.x;                      // 目标节点水平中点
+                    endY = target.y + targetHeight / 2;   // 目标节点下边缘中点
                 }
-                // 计算对应的X坐标（保持连线方向）
-                const slope = dx / dy;
-                startX = source.x + slope * (startY - source.y);
-                // 确保X坐标在节点宽度范围内
-                startX = Math.max(source.x - sourceWidth / 2, Math.min(source.x + sourceWidth / 2, startX));
-            }
-            
-            // 计算连线终点（到目标节点最接近源节点的边缘）
-            let endX = target.x, endY = target.y;
-            const reverseDx = source.x - target.x;
-            const reverseDy = source.y - target.y;
-            
-            // 计算目标节点边缘的交点
-            if (Math.abs(reverseDx) > Math.abs(reverseDy)) {
-                // 水平距离更大，到左右边缘结束
-                if (reverseDx > 0) {
-                    endX = target.x + targetWidth / 2;
-                } else {
-                    endX = target.x - targetWidth / 2;
-                }
-                // 计算对应的Y坐标（保持连线方向）
-                const slope = reverseDy / reverseDx;
-                endY = target.y + slope * (endX - target.x);
-                // 确保Y坐标在节点高度范围内
-                endY = Math.max(target.y - targetHeight / 2, Math.min(target.y + targetHeight / 2, endY));
-            } else {
-                // 垂直距离更大，到上下边缘结束
-                if (reverseDy > 0) {
-                    endY = target.y + targetHeight / 2;
-                } else {
-                    endY = target.y - targetHeight / 2;
-                }
-                // 计算对应的X坐标（保持连线方向）
-                const slope = reverseDx / reverseDy;
-                endX = target.x + slope * (endY - target.y);
-                // 确保X坐标在节点宽度范围内
-                endX = Math.max(target.x - targetWidth / 2, Math.min(target.x + targetWidth / 2, endX));
             }
             
             // 创建带箭头的连接线
@@ -485,10 +460,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
             
-            // 计算箭头位置（在终点前留出箭头空间）
-            const arrowLength = 12; // 箭头长度
-            const arrowWidth = 8;   // 箭头宽度
-            const arrowOffset = arrowLength / lineLength; // 箭头偏移比例
+            // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
+            const arrowLength = 8; // 缩小箭头长度
+            const arrowWidth = 6;  // 缩小箭头宽度
+            
+            // 计算箭头偏移距离，确保与连接线到开始节点的距离一致
+            const offsetDistance = 8; // 固定偏移距离，与连接线到开始节点的距离保持一致
+            const arrowOffset = offsetDistance / lineLength; // 箭头偏移比例
             
             const arrowX = endX - (endX - startX) * arrowOffset;
             const arrowY = endY - (endY - startY) * arrowOffset;
@@ -505,8 +483,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 计算箭头方向
             const angle = Math.atan2(endY - startY, endX - startX);
-            const arrowAngle1 = angle + Math.PI / 6; // 箭头一边的角度
-            const arrowAngle2 = angle - Math.PI / 6; // 箭头另一边的角度
+            const arrowAngle1 = angle + Math.PI / 8; // 缩小箭头角度，让箭头更精致
+            const arrowAngle2 = angle - Math.PI / 8; // 缩小箭头角度，让箭头更精致
             
             // 计算箭头的三个顶点
             const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
@@ -804,74 +782,53 @@ document.addEventListener('DOMContentLoaded', function() {
         const targetWidth = targetNode.width || Math.max(80, (targetNode.label || '').length * 8);
         const targetHeight = targetNode.height || 40;
 
-        // 计算连线起点（从源节点最接近目标节点的边缘开始）
-        let startX = sourceNode.x, startY = sourceNode.y;
+        // 计算连线起点和终点（始终连接到节点边缘的中点）
         const dx = targetNode.x - sourceNode.x;
         const dy = targetNode.y - sourceNode.y;
         
-        // 计算源节点边缘的交点
-        if (Math.abs(dx) > Math.abs(dy)) {
-            // 水平距离更大，从左右边缘开始
-            if (dx > 0) {
-                startX = sourceNode.x + sourceWidth / 2;
-            } else {
-                startX = sourceNode.x - sourceWidth / 2;
-            }
-            // 计算对应的Y坐标（保持连线方向）
-            const slope = dy / dx;
-            startY = sourceNode.y + slope * (startX - sourceNode.x);
-            // 确保Y坐标在节点高度范围内
-            startY = Math.max(sourceNode.y - sourceHeight / 2, Math.min(sourceNode.y + sourceHeight / 2, startY));
-        } else {
-            // 垂直距离更大，从上下边缘开始
-            if (dy > 0) {
-                startY = sourceNode.y + sourceHeight / 2;
-            } else {
-                startY = sourceNode.y - sourceHeight / 2;
-            }
-            // 计算对应的X坐标（保持连线方向）
-            const slope = dx / dy;
-            startX = sourceNode.x + slope * (startY - sourceNode.y);
-            // 确保X坐标在节点宽度范围内
-            startX = Math.max(sourceNode.x - sourceWidth / 2, Math.min(sourceNode.x + sourceWidth / 2, startX));
-        }
-
-        // 计算连线终点（到目标节点最接近源节点的边缘）
-        let endX = targetNode.x, endY = targetNode.y;
-        const reverseDx = sourceNode.x - targetNode.x;
-        const reverseDy = sourceNode.y - targetNode.y;
+        let startX, startY, endX, endY;
         
-        // 计算目标节点边缘的交点
-        if (Math.abs(reverseDx) > Math.abs(reverseDy)) {
-            // 水平距离更大，到左右边缘结束
-            if (reverseDx > 0) {
-                endX = targetNode.x + targetWidth / 2;
+        // 确定连接方向并计算边缘中点
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // 水平距离更大，从左右边缘连接
+            if (dx > 0) {
+                // 源节点在左，目标节点在右
+                startX = sourceNode.x + sourceWidth / 2;  // 源节点右边缘中点
+                startY = sourceNode.y;                    // 源节点垂直中点
+                endX = targetNode.x - targetWidth / 2;    // 目标节点左边缘中点
+                endY = targetNode.y;                      // 目标节点垂直中点
             } else {
-                endX = targetNode.x - targetWidth / 2;
+                // 源节点在右，目标节点在左
+                startX = sourceNode.x - sourceWidth / 2;  // 源节点左边缘中点
+                startY = sourceNode.y;                    // 源节点垂直中点
+                endX = targetNode.x + targetWidth / 2;    // 目标节点右边缘中点
+                endY = targetNode.y;                      // 目标节点垂直中点
             }
-            // 计算对应的Y坐标（保持连线方向）
-            const slope = reverseDy / reverseDx;
-            endY = targetNode.y + slope * (endX - targetNode.x);
-            // 确保Y坐标在节点高度范围内
-            endY = Math.max(targetNode.y - targetHeight / 2, Math.min(targetNode.y + targetHeight / 2, endY));
         } else {
-            // 垂直距离更大，到上下边缘结束
-            if (reverseDy > 0) {
-                endY = targetNode.y + targetHeight / 2;
+            // 垂直距离更大，从上下边缘连接
+            if (dy > 0) {
+                // 源节点在上，目标节点在下
+                startX = sourceNode.x;                    // 源节点水平中点
+                startY = sourceNode.y + sourceHeight / 2; // 源节点下边缘中点
+                endX = targetNode.x;                      // 目标节点水平中点
+                endY = targetNode.y - targetHeight / 2;   // 目标节点上边缘中点
             } else {
-                endY = targetNode.y - targetHeight / 2;
+                // 源节点在下，目标节点在上
+                startX = sourceNode.x;                    // 源节点水平中点
+                startY = sourceNode.y - sourceHeight / 2; // 源节点上边缘中点
+                endX = targetNode.x;                      // 目标节点水平中点
+                endY = targetNode.y + targetHeight / 2;   // 目标节点下边缘中点
             }
-            // 计算对应的X坐标（保持连线方向）
-            const slope = reverseDx / reverseDy;
-            endX = targetNode.x + slope * (endY - targetNode.y);
-            // 确保X坐标在节点宽度范围内
-            endX = Math.max(targetNode.x - targetWidth / 2, Math.min(targetNode.x + targetWidth / 2, endX));
         }
 
-        // 计算箭头位置（在终点前留出箭头空间）
+        // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
         const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-        const arrowLength = 12; // 箭头长度
-        const arrowOffset = arrowLength / lineLength; // 箭头偏移比例
+        const arrowLength = 8; // 缩小箭头长度
+        const arrowWidth = 6;  // 缩小箭头宽度
+        
+        // 计算箭头偏移距离，确保与连接线到开始节点的距离一致
+        const offsetDistance = 8; // 固定偏移距离，与连接线到开始节点的距离保持一致
+        const arrowOffset = offsetDistance / lineLength; // 箭头偏移比例
         
         const arrowX = endX - (endX - startX) * arrowOffset;
         const arrowY = endY - (endY - startY) * arrowOffset;
@@ -882,8 +839,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 更新箭头位置
         const angle = Math.atan2(endY - startY, endX - startX);
-        const arrowAngle1 = angle + Math.PI / 6; // 箭头一边的角度
-        const arrowAngle2 = angle - Math.PI / 6; // 箭头另一边的角度
+        const arrowAngle1 = angle + Math.PI / 8; // 缩小箭头角度，让箭头更精致
+        const arrowAngle2 = angle - Math.PI / 8; // 缩小箭头角度，让箭头更精致
         
         // 计算箭头的三个顶点
         const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
