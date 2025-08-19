@@ -1217,15 +1217,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const deltaX = e.clientX - window.resizeStartX;
         const deltaY = e.clientY - window.resizeStartY;
         
-        // 根据拖拽方向计算新的尺寸 - 增加缩放敏感度
-        const scaleX = 1 + (deltaX / window.originalWidth) * 0.1;  // 增加敏感度从0.01到0.1
-        const scaleY = 1 + (deltaY / window.originalHeight) * 0.1; // 增加敏感度从0.01到0.1
+        // 根据拖拽方向计算新的尺寸 - 让缩放幅度与拖动范围一致
+        // 使用更大的乘数，让拖拽距离直接对应缩放效果
+        const scaleX = 1 + (deltaX / window.originalWidth) * 1.0;  // 增加敏感度到1.0，拖拽一个节点宽度对应2倍缩放
+        const scaleY = 1 + (deltaY / window.originalHeight) * 1.0; // 增加敏感度到1.0，拖拽一个节点高度对应2倍缩放
         
         // 等比例缩放
         const scale = Math.min(scaleX, scaleY);
         
-        // 确保缩放系数在合理范围内
-        const clampedScale = Math.max(0.5, Math.min(scale, 3.0)); // 限制缩放范围在0.5到3.0之间
+        // 确保缩放系数在合理范围内，扩大缩放范围
+        const clampedScale = Math.max(0.2, Math.min(scale, 8.0)); // 限制缩放范围在0.2到8.0之间
         
         // 添加调试信息
         console.log('缩放调试:', {
@@ -1250,11 +1251,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 rect.setAttribute('x', -newWidth / 2);
                 rect.setAttribute('y', -newHeight / 2);
                 
-                // 更新文字大小
+                // 更新文字大小 - 让文字缩放更加明显
                 const text = nodeGroup.querySelector('text');
                 if (text) {
-                    const newFontSize = Math.max(10, 12 * clampedScale);
+                    const newFontSize = Math.max(8, 12 * clampedScale);
                     text.setAttribute('font-size', newFontSize);
+                    
+                    // 同时调整文字位置，确保在节点中心
+                    text.setAttribute('y', 4); // 保持垂直居中
                 }
             }
         }
