@@ -349,57 +349,52 @@ document.addEventListener('DOMContentLoaded', function() {
             updateApiUrl();
             console.log(`当前使用的API地址: ${API_BASE_URL}`);
             
-            // 构建三元组提取提示词
+            // 构建三元组提取提示词（关系由模型自行判断与命名）
             const triplePrompt = `# 角色
-你是一位知识图谱构建专家，擅长从非结构化文本中精准地抽取出核心概念及其关系。
+你是一位知识图谱构建专家，擅长从非结构化文本中抽取概念及其语义关系。
 
 # 任务
-你的任务是分析我提供的文本内容，识别出其中包含的核心概念（实体）以及它们之间的明确关系，并以 (概念词1, 关系, 概念词2) 的格式输出一系列三元组。
+分析我提供的文本，识别核心概念（实体/事件/属性等）以及它们之间的关系。关系由你根据语义自行判断与命名，必须选择最准确、最具体的中文动词或短语。
 
-# 核心原则与规则
-提取主干： 专注于句子中的主语、谓语和宾语，构建核心关系。
-构建复合实体 (重要)： 当一个核心名词（如"总部"、"首都"）是用来具体定义另一个实体（如"苹果公司"、"中国"）时，应将它们合并成一个更具体的复合实体（如"苹果公司总部"、"中国首都"）。这有助于让关系动词变得更简洁、更基础（如使用"位于"而不是"总部位于"）。
-精简概念： "概念词"应尽可能简洁，去除不必要的修饰词（例如，将"一场重大的政治革命"精简为"政治革命"）。
-忽略修饰成分： 必须忽略作为状语或定语的时间、地点、方式、程度等补充说明信息。
-例： 在"辛亥革命于1911年在中国爆发"中，"于1911年"和"在中国"都应被忽略。
-保留核心宾语： 如果地点、时间或某个属性是句子的核心宾语，则必须保留。
-直接提取： 只提取文本中明确提及的概念和关系，不要添加推理或扩展的内容。
+# 关系类型指导
+请根据语义准确选择关系类型：
+- 时间关系：发生在、开始于、结束于、持续、发生于
+- 因果关系：导致、引起、促进、推动、催生、影响
+- 属性关系：具有、属于、是、构成、组成
+- 空间关系：位于、分布、存在于、坐落于
+- 功能关系：用于、服务于、支持、实现
+- 变化关系：变成、转变为、演化为、发展成
+- 比较关系：大于、小于、优于、不同于
+- 逻辑关系：意味着、表示、说明、体现
 
-输出格式：
-严格遵循 (概念词1, 关系, 概念词2) 的格式，使用英文逗号分隔。
-每一行只输出一个三元组。
-如果文本中没有可提取的三元组，则不输出任何内容。
+# 规则
+1. 关系精确性：选择最具体、最准确的关系词，避免使用过于宽泛的"包含"等词。
+2. 保留核心：聚焦主语-谓语-宾语主干，忽略时间/地点/方式/程度等修饰，除非它是核心宾语。
+3. 概念精简：概念词尽量简短；必要时可构造复合实体以简化关系动词。
+4. 语义归纳：当关系未直接明言但语义明确时，可进行不改变事实的归纳命名；不得臆造文本中不存在的事实。
+5. 去重合并：同义或重复三元组需合并，保持表达一致。
+
+# 输出格式
+严格使用 (概念词1, 关系, 概念词2) 的格式，使用英文逗号分隔；每行仅输出一个三元组；只输出三元组。
 
 # 示例
-示例 1:
-输入文本： "辛亥革命是指1911年（农历辛亥年）在中国爆发的一场重大政治革命。"
+输入："辛亥革命发生在1911年，这场革命结束了中国两千多年的封建帝制，建立了中华民国。"
 输出：
-(辛亥革命, 是, 政治革命)
+(辛亥革命, 发生在, 1911年)
+(辛亥革命, 结束, 封建帝制)
+(辛亥革命, 建立, 中华民国)
 
-示例 2:
-输入文本： "过量摄入咖啡因这种物质可能会导致普通人失眠。"
+输入："人工智能技术的发展推动了社会进步，促进了生产效率的提升。"
 输出：
-(过量摄入咖啡因, 导致, 失眠)
-
-示例 3 (应用规则2):
-输入文本： "中华人民共和国的首都是北京，这座美丽的城市是中国的政治、文化中心。"
-输出：
-(中华人民共和国首都, 是, 北京)
-(北京, 是, 政治中心)
-(北京, 是, 文化中心)
-
-示例 4 (应用规则2 - 根据您的反馈已修正):
-输入文本： "苹果公司由史蒂夫·乔布斯等人在1976年创立，其总部位于加利福尼亚州。"
-输出：
-(史蒂夫·乔布斯, 创立, 苹果公司)
-(苹果公司总部, 位于, 加利福尼亚州)
+(人工智能技术发展, 推动, 社会进步)
+(人工智能技术发展, 促进, 生产效率提升)
 
 # 开始处理
-请根据以上所有规则，为以下文本内容提取三元组：
+请为以下文本提取三元组：
 
 ${introText}
 
-请严格按照格式输出，不要添加任何其他内容。`;
+请严格按照格式输出，不要添加其他内容。`;
             
             console.log('发送给AI的三元组提取提示词:', triplePrompt);
             
@@ -558,7 +553,42 @@ ${introText}
                     </div>
                 `;
             }
-            aiIntroText.className = 'intro-text';
+            aiIntroText.className = 'intro-text loading';
+            
+            // 生成焦点问题
+            let focusQuestion = '';
+            if (type === 'keyword') {
+                // 关键词模式：控制在10个字左右
+                const keyword = data.keyword;
+                if (keyword.length <= 6) {
+                    focusQuestion = `焦点问题：${keyword}是什么？`;
+                } else {
+                    // 如果关键词太长，截取前6个字符
+                    focusQuestion = `焦点问题：${keyword.substring(0, 6)}...是什么？`;
+                }
+            } else {
+                // 文本分析模式：控制在10个字左右
+                const textContent = data.description;
+                // 提取核心概念，控制在6个字左右
+                let coreConcept = '';
+                if (textContent.length <= 6) {
+                    coreConcept = textContent;
+                } else {
+                    // 尝试找到句子的主语或核心名词
+                    const sentences = textContent.split(/[。！？，；]/);
+                    const firstSentence = sentences[0].trim();
+                    if (firstSentence.length <= 6) {
+                        coreConcept = firstSentence;
+                    } else {
+                        // 提取前6个字符作为核心概念
+                        coreConcept = firstSentence.substring(0, 6) + '...';
+                    }
+                }
+                focusQuestion = `焦点问题：${coreConcept}`;
+            }
+            
+            // 将焦点问题存储到全局变量中
+            window.focusQuestion = focusQuestion;
             
             // 构建概念图生成提示词
             let conceptPrompt = '';
@@ -573,8 +603,8 @@ ${introText}
     {"id": "3", "label": "相关概念B", "type": "sub", "description": "与中心概念相关的概念", "importance": 7}
   ],
   "links": [
-    {"source": "1", "target": "2", "label": "包含", "type": "hierarchy", "strength": 8},
-    {"source": "1", "target": "3", "label": "包含", "type": "hierarchy", "strength": 7}
+    {"source": "1", "target": "2", "label": "导致", "type": "causal", "strength": 8},
+    {"source": "1", "target": "3", "label": "具有", "type": "attribute", "strength": 7}
   ],
   "metadata": {
     "keyword": "${data.keyword}",
@@ -589,7 +619,7 @@ ${introText}
 
 请按照以下要求提取：
 1. 识别文本中提到的所有重要概念（实体、事件、属性等）
-2. 分析概念之间的逻辑关系（包含、属于、导致、具有等）
+2. 分析概念之间的逻辑关系（导致、影响、具有、属于、建立、推动等）
 3. 为每个概念分配重要性权重（1-10）
 4. 为每个关系分配强度权重（1-10）
 
@@ -619,10 +649,11 @@ ${introText}
             if (type === 'keyword') {
                 introPrompt = `请为关键词"${data.keyword}"生成一段简洁的介绍文字，要求：
 1. 介绍内容需要采用特定的概念关系链结构：概念1（关键词）关系 概念2，然后接下来的内容围绕概念2 关系 概念3，以此类推
-2. 整体内容必须与关键词"${data.keyword}"密切相关
-3. 语言要通俗易懂，适合一般读者理解
-4. 字数必须控制在200字左右
-5. 确保概念之间的关系连贯，形成一个完整的知识链
+2. 关系词要具体准确，避免使用"包含"等过于宽泛的词，优先使用：发生在、导致、建立、推动、促进、影响、具有、位于、属于、是等具体关系词
+3. 整体内容必须与关键词"${data.keyword}"密切相关
+4. 语言要通俗易懂，适合一般读者理解
+5. 字数必须控制在200字左右
+6. 确保概念之间的关系连贯，形成一个完整的知识链
 
 请直接返回介绍文字，不要包含其他格式标记。`;
             } else {
@@ -781,6 +812,34 @@ ${introText}
         const nodeMap = new Map();
         let nodeId = 1;
         
+        // 获取当前关键词
+        let currentKeyword = '';
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                currentKeyword = match[1].trim();
+            }
+        }
+        
+        // 如果没有关键词，尝试从三元组中提取最常见的概念作为关键词
+        if (!currentKeyword && triples.length > 0) {
+            const conceptCount = new Map();
+            triples.forEach(triple => {
+                conceptCount.set(triple.source, (conceptCount.get(triple.source) || 0) + 1);
+                conceptCount.set(triple.target, (conceptCount.get(triple.target) || 0) + 1);
+            });
+            
+            let maxCount = 0;
+            conceptCount.forEach((count, concept) => {
+                if (count > maxCount) {
+                    maxCount = count;
+                    currentKeyword = concept;
+                }
+            });
+        }
+        
+        console.log('提取的关键词:', currentKeyword);
+        
         // 处理所有三元组
         triples.forEach((triple, index) => {
             const { source, relation, target } = triple;
@@ -793,7 +852,7 @@ ${introText}
                     label: source,
                     type: 'concept',
                     description: `从文本中提取的概念: ${source}`,
-                    importance: 8
+                    importance: source === currentKeyword ? 10 : 8
                 });
                 nodeId++;
             }
@@ -806,7 +865,7 @@ ${introText}
                     label: target,
                     type: 'concept',
                     description: `从文本中提取的概念: ${target}`,
-                    importance: 7
+                    importance: target === currentKeyword ? 10 : 7
                 });
                 nodeId++;
             }
@@ -822,6 +881,38 @@ ${introText}
             });
         });
         
+        // 确保第一层节点在数组的第一位
+        if (currentKeyword) {
+            const firstLayerIndex = nodes.findIndex(node => node.label === currentKeyword);
+            if (firstLayerIndex > 0) {
+                const firstLayerNode = nodes.splice(firstLayerIndex, 1)[0];
+                nodes.unshift(firstLayerNode);
+                
+                // 更新节点ID映射
+                const oldId = firstLayerNode.id;
+                const newId = '1';
+                firstLayerNode.id = newId;
+                
+                // 更新连线中的节点ID引用
+                links.forEach(link => {
+                    if (link.source === oldId) link.source = newId;
+                    if (link.target === oldId) link.target = newId;
+                });
+                
+                // 重新分配其他节点的ID
+                for (let i = 1; i < nodes.length; i++) {
+                    const oldId = nodes[i].id;
+                    const newId = (i + 1).toString();
+                    nodes[i].id = newId;
+                    
+                    links.forEach(link => {
+                        if (link.source === oldId) link.source = newId;
+                        if (link.target === oldId) link.target = newId;
+                    });
+                }
+            }
+        }
+        
         const conceptData = {
             nodes: nodes,
             links: links,
@@ -829,7 +920,8 @@ ${introText}
                 summary: `基于AI介绍内容提取的 ${triples.length} 个三元组构建的概念图`,
                 domain: 'AI介绍分析',
                 source: 'AI介绍内容',
-                tripleCount: triples.length
+                tripleCount: triples.length,
+                keyword: currentKeyword
             }
         };
         
@@ -846,27 +938,179 @@ ${introText}
             // 获取原始的AI介绍内容
             const originalIntro = aiIntroText.innerHTML;
             
-            // 在原始介绍内容下方添加三元组结果，但保持简洁的样式
+            // 在原始介绍内容下方添加三元组结果，使用垂直布局
             let resultHtml = originalIntro;
             resultHtml += '<hr style="margin: 20px 0; border: none; border-top: 1px solid #e9ecef;">';
-            resultHtml += '<p><strong>从AI介绍中提取到的概念关系：</strong></p>';
+            resultHtml += '<div style="margin-top: 15px;">';
+            resultHtml += '<h4 style="color: #667eea; margin: 0 0 15px 0; font-size: 16px;">从AI介绍中提取到的概念关系：</h4>';
             
-            // 简化三元组显示，使用普通文本格式
+            // 创建三元组列表，使用更好的样式
+            resultHtml += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #667eea;">';
             triples.forEach((triple, index) => {
-                resultHtml += `<p>${index + 1}. ${triple.source} ${triple.relation} ${triple.target}</p>`;
+                resultHtml += `<p style="margin: 8px 0; line-height: 1.5;">${index + 1}. ${triple.source} <strong>${triple.relation}</strong> ${triple.target}</p>`;
             });
+            resultHtml += '</div>';
             
-            // 添加简单的统计信息
-            resultHtml += `<p>共提取出 ${conceptData.nodes.length} 个概念，${conceptData.links.length} 个关系</p>`;
+            // 添加统计信息
+            resultHtml += `<p style="margin-top: 15px; color: #666; font-size: 13px;">共提取出 ${conceptData.nodes.length} 个概念，${conceptData.links.length} 个关系</p>`;
+            resultHtml += '</div>';
             
             aiIntroText.innerHTML = resultHtml;
-            aiIntroText.className = 'intro-text';
+            aiIntroText.className = 'intro-text'; // 确保移除loading类
         }
+    }
+
+    // 确保第一层只有一个节点，内容与关键词相关
+    function ensureSingleFirstLayer(conceptData) {
+        console.log('确保第一层只有一个节点...');
+        
+        if (!conceptData || !conceptData.nodes || conceptData.nodes.length === 0) {
+            return conceptData;
+        }
+        
+        const nodes = [...conceptData.nodes];
+        const links = [...conceptData.links];
+        
+        // 获取当前关键词（从全局变量或元数据中）
+        let currentKeyword = '';
+        if (window.focusQuestion) {
+            // 从焦点问题中提取关键词
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                currentKeyword = match[1].trim();
+            }
+        }
+        
+        // 如果没有找到关键词，尝试从元数据中获取
+        if (!currentKeyword && conceptData.metadata && conceptData.metadata.keyword) {
+            currentKeyword = conceptData.metadata.keyword;
+        }
+        
+        // 如果仍然没有关键词，使用第一个节点作为关键词
+        if (!currentKeyword && nodes.length > 0) {
+            currentKeyword = nodes[0].label;
+        }
+        
+        console.log('当前关键词:', currentKeyword);
+        
+        // 找到与关键词最相关的节点作为第一层节点
+        let firstLayerNode = null;
+        let bestMatchScore = 0;
+        
+        nodes.forEach(node => {
+            const matchScore = calculateKeywordMatchScore(node.label, currentKeyword);
+            if (matchScore > bestMatchScore) {
+                bestMatchScore = matchScore;
+                firstLayerNode = node;
+            }
+        });
+        
+        // 如果没有找到合适的节点，创建一个新的第一层节点
+        if (!firstLayerNode) {
+            firstLayerNode = {
+                id: 'first-layer',
+                label: currentKeyword || '核心概念',
+                type: 'main',
+                description: '第一层核心节点',
+                importance: 10
+            };
+            nodes.unshift(firstLayerNode);
+        }
+        
+        // 确保第一层节点在数组的第一位
+        if (firstLayerNode.id !== nodes[0].id) {
+            const firstLayerIndex = nodes.findIndex(n => n.id === firstLayerNode.id);
+            if (firstLayerIndex > 0) {
+                nodes.splice(firstLayerIndex, 1);
+                nodes.unshift(firstLayerNode);
+            }
+        }
+        
+        // 重新构建连线，确保所有其他节点都连接到第一层节点
+        const newLinks = [];
+        const firstLayerId = firstLayerNode.id;
+        
+        // 添加从第一层到其他节点的连线
+        nodes.slice(1).forEach(node => {
+            // 检查是否已经存在连线
+            const existingLink = links.find(link => 
+                (link.source === firstLayerId && link.target === node.id) ||
+                (link.source === node.id && link.target === firstLayerId)
+            );
+            
+            if (!existingLink) {
+                newLinks.push({
+                    id: `link-${firstLayerId}-${node.id}`,
+                    source: firstLayerId,
+                    target: node.id,
+                    label: '包含',
+                    type: 'hierarchy',
+                    strength: 8
+                });
+            } else {
+                // 如果连线方向不对，调整方向
+                if (existingLink.source !== firstLayerId) {
+                    existingLink.source = firstLayerId;
+                    existingLink.target = node.id;
+                }
+                newLinks.push(existingLink);
+            }
+        });
+        
+        // 添加其他节点之间的连线（如果存在）
+        links.forEach(link => {
+            if (link.source !== firstLayerId && link.target !== firstLayerId) {
+                newLinks.push(link);
+            }
+        });
+        
+        console.log('第一层节点处理完成:', firstLayerNode.label);
+        console.log('节点数量:', nodes.length);
+        console.log('连线数量:', newLinks.length);
+        
+        return {
+            nodes: nodes,
+            links: newLinks,
+            metadata: conceptData.metadata || {}
+        };
+    }
+    
+    // 计算关键词匹配度
+    function calculateKeywordMatchScore(nodeLabel, keyword) {
+        if (!keyword || !nodeLabel) return 0;
+        
+        const keywordLower = keyword.toLowerCase();
+        const nodeLabelLower = nodeLabel.toLowerCase();
+        
+        // 完全匹配得分最高
+        if (nodeLabelLower === keywordLower) return 100;
+        
+        // 包含关键词得分较高
+        if (nodeLabelLower.includes(keywordLower)) return 80;
+        
+        // 关键词包含节点标签得分中等
+        if (keywordLower.includes(nodeLabelLower)) return 60;
+        
+        // 部分匹配得分较低
+        const keywordWords = keywordLower.split(/[\s,，。！？；：""''（）()]+/);
+        const nodeWords = nodeLabelLower.split(/[\s,，。！？；：""''（）()]+/);
+        
+        let matchCount = 0;
+        keywordWords.forEach(word => {
+            if (word.length > 1 && nodeWords.some(nodeWord => nodeWord.includes(word))) {
+                matchCount++;
+            }
+        });
+        
+        return matchCount * 20;
     }
 
     // 转换API数据为D3.js格式
     function convertToD3Format(conceptData) {
-        const nodes = conceptData.nodes.map((node, index) => ({
+        // 确保第一层只有一个节点，内容与关键词相关
+        const processedData = ensureSingleFirstLayer(conceptData);
+        
+        const nodes = processedData.nodes.map((node, index) => ({
             id: node.id,
             label: node.label,
             x: 0, // 初始位置设为0，由智能布局算法确定
@@ -876,7 +1120,7 @@ ${introText}
             importance: node.importance || 5
         }));
 
-        const links = conceptData.links.map((link, index) => ({
+        const links = processedData.links.map((link, index) => ({
             id: link.id || `link-${link.source}-${link.target}`,
             source: link.source,
             target: link.target,
@@ -890,7 +1134,7 @@ ${introText}
         const graphData = {
             nodes: nodes,
             links: links,
-            metadata: conceptData.metadata || {}
+            metadata: processedData.metadata || {}
         };
 
         // 应用智能布局算法
@@ -929,17 +1173,37 @@ ${introText}
         return optimizedGraph;
     }
     
-    // 分析图形结构，自动选择布局算法
+    // 分析图形结构，自动选择布局算法 - 优化优先选择层次布局
     function analyzeGraphStructure(nodes, links) {
         if (nodes.length <= 1) return 'force';
+        
+        // 检查是否有明确的第一级关键词节点
+        let hasFirstLevelNode = false;
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                const currentKeyword = match[1].trim();
+                hasFirstLevelNode = nodes.some(node => {
+                    const nodeLabel = node.label || '';
+                    return nodeLabel === currentKeyword || 
+                           nodeLabel.includes(currentKeyword) || 
+                           currentKeyword.includes(nodeLabel);
+                });
+            }
+        }
         
         // 计算层次性指标
         const hierarchyScore = calculateHierarchyScore(nodes, links);
         
-        console.log(`结构分析结果: 层次性=${hierarchyScore.toFixed(2)}`);
+        console.log(`结构分析结果: 层次性=${hierarchyScore.toFixed(2)}, 有第一级节点=${hasFirstLevelNode}`);
         
-        // 根据指标选择布局算法
-        if (hierarchyScore > 0.7) {
+        // 如果有明确的第一级节点，优先使用层次布局
+        if (hasFirstLevelNode) {
+            return 'hierarchical'; // Sugiyama算法
+        }
+        
+        // 根据层次性指标选择布局算法
+        if (hierarchyScore > 0.6) { // 降低阈值，更容易选择层次布局
             return 'hierarchical'; // Sugiyama算法
         } else {
             return 'force';        // 力导向布局
@@ -1004,32 +1268,132 @@ ${introText}
     
 
 
-    // 智能初始化节点位置
+    // 智能初始化节点位置 - 优化确保所有节点在边界内，第一级节点在焦点问题下方
     function initializeNodePositions(nodes, width, height) {
+        // 统一的边界间距
+        const margin = 150; // 左右边界间距
+        const topMargin = 90; // 减小顶部边界间距，与assignCoordinates保持一致
+        const bottomMargin = 150; // 底部边界间距
+        
+        // 计算可用的布局区域
+        const availableWidth = width - 2 * margin;
+        const availableHeight = height - topMargin - bottomMargin;
         const centerX = width / 2;
-        const centerY = height / 2;
+        const centerY = topMargin + availableHeight / 2;
+        
+        // 获取第一级关键词节点
+        let firstLevelNode = null;
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                const currentKeyword = match[1].trim();
+                firstLevelNode = nodes.find(node => {
+                    const nodeLabel = node.label || '';
+                    return nodeLabel === currentKeyword || 
+                           nodeLabel.includes(currentKeyword) || 
+                           currentKeyword.includes(nodeLabel);
+                });
+            }
+        }
         
         if (nodes.length === 1) {
-            // 单个节点居中
+            // 单个节点放在焦点问题正下方
             nodes[0].x = centerX;
-            nodes[0].y = centerY;
+            nodes[0].y = topMargin + 80; // 焦点问题下方
         } else if (nodes.length === 2) {
-            // 两个节点水平排列
-            nodes[0].x = centerX - 100;
-            nodes[0].y = centerY;
-            nodes[1].x = centerX + 100;
-            nodes[1].y = centerY;
+            if (firstLevelNode) {
+                // 第一级节点在焦点问题下方，其他节点在第一级下方
+                const otherNode = nodes.find(n => n.id !== firstLevelNode.id);
+                firstLevelNode.x = centerX;
+                firstLevelNode.y = topMargin + 80; // 焦点问题正下方
+                otherNode.x = centerX;
+                otherNode.y = topMargin + 220; // 第一级节点下方
+            } else {
+                // 两个节点垂直排列，第一个在焦点问题下方
+                nodes[0].x = centerX;
+                nodes[0].y = topMargin + 80; // 焦点问题正下方
+                nodes[1].x = centerX;
+                nodes[1].y = topMargin + 220; // 第一个节点下方
+            }
         } else {
-            // 多个节点使用圆形初始布局
-            const radius = Math.min(width, height) * 0.3;
-            const angleStep = (2 * Math.PI) / nodes.length;
-            
-            nodes.forEach((node, index) => {
-                const angle = index * angleStep;
-                node.x = centerX + radius * Math.cos(angle);
-                node.y = centerY + radius * radius * Math.sin(angle);
-            });
+            if (firstLevelNode) {
+                // 第一级节点在焦点问题下方居中
+                firstLevelNode.x = centerX;
+                firstLevelNode.y = topMargin + 80; // 焦点问题正下方
+                
+                // 其他节点使用分层布局，依次向下摆放
+                const otherNodes = nodes.filter(n => n.id !== firstLevelNode.id);
+                const levelHeight = Math.max(100, Math.min(140, availableHeight / (otherNodes.length + 1)));
+                
+                // 对其他节点进行简单排序，以便分层展示
+                otherNodes.sort((a, b) => {
+                    // 如果有预设y坐标，根据y坐标排序
+                    if (a.y !== undefined && b.y !== undefined) {
+                        return a.y - b.y;
+                    }
+                    return 0;
+                });
+                
+                // 为其他节点分配水平位置
+                const nodesPerRow = Math.ceil(Math.sqrt(otherNodes.length));
+                otherNodes.forEach((node, index) => {
+                    const level = Math.floor(index / nodesPerRow) + 1; // 从第2层开始
+                    const posInLevel = index % nodesPerRow;
+                    const levelWidth = Math.min(availableWidth, nodesPerRow * 120);
+                    const xStep = levelWidth / (nodesPerRow + 1);
+                    
+                    node.x = centerX - levelWidth/2 + (posInLevel + 1) * xStep;
+                    node.y = topMargin + 80 + level * levelHeight; // 从第一级节点下方开始
+                });
+            } else {
+                // 第一个节点放在焦点问题正下方，其他节点分层布局
+                nodes[0].x = centerX;
+                nodes[0].y = topMargin + 80; // 焦点问题正下方
+                
+                const otherNodes = nodes.slice(1);
+                const levelHeight = Math.max(100, Math.min(140, availableHeight / (otherNodes.length + 1)));
+                
+                // 为其他节点分配水平位置
+                const nodesPerRow = Math.ceil(Math.sqrt(otherNodes.length));
+                otherNodes.forEach((node, index) => {
+                    const level = Math.floor(index / nodesPerRow) + 1; // 从第2层开始
+                    const posInLevel = index % nodesPerRow;
+                    const levelWidth = Math.min(availableWidth, nodesPerRow * 120);
+                    const xStep = levelWidth / (nodesPerRow + 1);
+                    
+                    node.x = centerX - levelWidth/2 + (posInLevel + 1) * xStep;
+                    node.y = topMargin + 80 + level * levelHeight; // 从第一级节点下方开始
+                });
+            }
         }
+        
+        // 严格的边界验证，确保所有节点都在边界内
+        nodes.forEach(node => {
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
+            
+            // 增加安全边距
+            const safeMargin = margin + 20;
+            const safeTopMargin = topMargin + 20;
+            const safeBottomMargin = bottomMargin + 20;
+            
+            // 确保节点不超出左右边界
+            if (node.x - nodeWidth / 2 < safeMargin) {
+                node.x = safeMargin + nodeWidth / 2;
+            }
+            if (node.x + nodeWidth / 2 > width - safeMargin) {
+                node.x = width - safeMargin - nodeWidth / 2;
+            }
+            
+            // 确保节点不超出上下边界
+            if (node.y - nodeHeight / 2 < safeTopMargin) {
+                node.y = safeTopMargin + nodeHeight / 2;
+            }
+            if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                node.y = height - safeBottomMargin - nodeHeight / 2;
+            }
+        });
     }
 
     // 应用力导向布局算法
@@ -1087,8 +1451,23 @@ ${introText}
         }
     }
 
-    // 应用引力 - 保持连线连接
+    // 应用引力 - 保持连线连接，并增强第一级节点的引力
     function applyAttractiveForces(nodes, links, linkLength, temperature) {
+        // 获取第一级关键词节点
+        let firstLevelNode = null;
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                const currentKeyword = match[1].trim();
+                firstLevelNode = nodes.find(node => {
+                    const nodeLabel = node.label || '';
+                    return nodeLabel === currentKeyword || 
+                           nodeLabel.includes(currentKeyword) || 
+                           currentKeyword.includes(nodeLabel);
+                });
+            }
+        }
+        
         links.forEach(link => {
             const source = nodes.find(n => n.id === link.source);
             const target = nodes.find(n => n.id === link.target);
@@ -1100,7 +1479,12 @@ ${introText}
                 
                 if (distance > 0) {
                     // 计算引力强度
-                    const force = (distance - linkLength) / distance * temperature * 0.3;
+                    let force = (distance - linkLength) / distance * temperature * 0.3;
+                    
+                    // 如果连线涉及第一级节点，增强引力
+                    if (firstLevelNode && (source.id === firstLevelNode.id || target.id === firstLevelNode.id)) {
+                        force *= 1.5; // 增强50%的引力
+                    }
                     
                     // 应用引力
                     const fx = dx * force;
@@ -1113,28 +1497,100 @@ ${introText}
                 }
             }
         });
+        
+        // 为第一级节点添加额外的引力，让其他节点倾向于围绕它排列
+        if (firstLevelNode) {
+            nodes.forEach(node => {
+                if (node.id !== firstLevelNode.id) {
+                    const dx = firstLevelNode.x - node.x;
+                    const dy = firstLevelNode.y - node.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > 0) {
+                        // 计算到第一级节点的引力（较弱，避免过度聚集）
+                        const force = (distance - linkLength * 2) / distance * temperature * 0.05;
+                        
+                        // 应用引力
+                        const fx = dx * force;
+                        const fy = dy * force;
+                        
+                        node.vx = (node.vx || 0) + fx;
+                        node.vy = (node.vy || 0) + fy;
+                    }
+                }
+            });
+        }
     }
 
-    // 应用边界力 - 保持节点在可视区域
+    // 应用边界力 - 保持节点在可视区域，统一边界间距，确保第一级节点在焦点问题下方
     function applyBoundaryForces(nodes, width, height, temperature) {
-        const margin = 50;
+        // 统一的边界间距，与层次布局保持一致
+        const margin = 150; // 左右边界间距
+        const topMargin = 90; // 减小顶部边界间距，与assignCoordinates保持一致
+        const bottomMargin = 150; // 底部边界间距
+        
+        // 获取第一级关键词节点
+        let firstLevelNode = null;
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                const currentKeyword = match[1].trim();
+                firstLevelNode = nodes.find(node => {
+                    const nodeLabel = node.label || '';
+                    return nodeLabel === currentKeyword || 
+                           nodeLabel.includes(currentKeyword) || 
+                           currentKeyword.includes(nodeLabel);
+                });
+            }
+        }
         
         nodes.forEach(node => {
-            // 左边界
-            if (node.x < margin) {
-                node.vx = (node.vx || 0) + (margin - node.x) * temperature * 0.1;
+            // 考虑节点尺寸的边界检查
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
+            
+            // 增加安全边距
+            const safeMargin = margin + 20;
+            const safeTopMargin = topMargin + 20;
+            const safeBottomMargin = bottomMargin + 20;
+            
+            // 左边界检查
+            if (node.x - nodeWidth / 2 < safeMargin) {
+                node.vx = (node.vx || 0) + (safeMargin + nodeWidth / 2 - node.x) * temperature * 0.2;
             }
-            // 右边界
-            if (node.x > width - margin) {
-                node.vx = (node.vx || 0) + (width - margin - node.x) * temperature * 0.1;
+            // 右边界检查
+            if (node.x + nodeWidth / 2 > width - safeMargin) {
+                node.vx = (node.vx || 0) + (width - safeMargin - nodeWidth / 2 - node.x) * temperature * 0.2;
             }
-            // 上边界
-            if (node.y < margin) {
-                node.vy = (node.vy || 0) + (margin - node.y) * temperature * 0.1;
-            }
-            // 下边界
-            if (node.y > height - margin) {
-                node.vy = (node.vy || 0) + (height - margin - node.y) * temperature * 0.1;
+            
+            // 第一级节点的特殊边界处理
+            if (firstLevelNode && node.id === firstLevelNode.id) {
+                // 第一级节点固定在焦点问题正下方
+                const targetY = topMargin + 80; // 与assignCoordinates中保持一致
+                const yDiff = targetY - node.y;
+                node.vy = (node.vy || 0) + yDiff * temperature * 0.5; // 强力固定在目标位置
+                
+                // 固定到水平居中位置
+                const centerX = width / 2;
+                const xDiff = centerX - node.x;
+                node.vx = (node.vx || 0) + xDiff * temperature * 0.3; // 保持水平居中
+            } else {
+                // 普通节点的边界处理，需要避免与第一级节点重叠
+                // 上边界检查 - 确保节点不会上移超过第一级节点的位置
+                if (firstLevelNode) {
+                    const minY = topMargin + 80 + 100; // 第一级节点位置 + 间距
+                    if (node.y < minY) {
+                        node.vy = (node.vy || 0) + (minY - node.y) * temperature * 0.3;
+                    }
+                } else if (node.y - nodeHeight / 2 < safeTopMargin) {
+                    node.vy = (node.vy || 0) + (safeTopMargin + nodeHeight / 2 - node.y) * temperature * 0.2;
+                }
+                
+                // 下边界检查
+                if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                    node.vy = (node.vy || 0) + (height - safeBottomMargin - nodeHeight / 2 - node.y) * temperature * 0.2;
+                }
             }
         });
     }
@@ -1432,6 +1888,9 @@ ${introText}
             }
         }
         
+        // 在概念图顶部显示焦点问题
+        displayFocusQuestion();
+        
         ensureCanvasVisible();
         drawGraph(currentGraphData);
         
@@ -1530,6 +1989,47 @@ ${introText}
         return yDiff > 80; // 如果y坐标差异大于80像素，认为是层次连接
     }
 
+    // 计算文字实际尺寸的函数
+    function calculateTextDimensions(text, fontSize = '12', fontFamily = 'Arial, sans-serif') {
+        // 创建临时SVG元素来测量文字尺寸
+        const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const tempText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        
+        tempText.setAttribute('font-size', fontSize);
+        tempText.setAttribute('font-family', fontFamily);
+        tempText.setAttribute('font-weight', '500');
+        tempText.textContent = text;
+        
+        tempSvg.appendChild(tempText);
+        document.body.appendChild(tempSvg);
+        
+        // 获取文字的实际尺寸
+        const bbox = tempText.getBBox();
+        const width = bbox.width;
+        const height = bbox.height;
+        
+        // 清理临时元素
+        document.body.removeChild(tempSvg);
+        
+        return { width, height };
+    }
+
+    // 计算节点最佳尺寸的函数
+    function calculateNodeDimensions(nodeLabel, minWidth = 80, minHeight = 40, padding = 20) {
+        if (!nodeLabel || nodeLabel.trim() === '') {
+            return { width: minWidth, height: minHeight };
+        }
+        
+        // 计算文字尺寸
+        const textDimensions = calculateTextDimensions(nodeLabel, '12', 'Arial, sans-serif');
+        
+        // 计算节点尺寸（文字尺寸 + 内边距）
+        const nodeWidth = Math.max(minWidth, textDimensions.width + padding);
+        const nodeHeight = Math.max(minHeight, textDimensions.height + padding);
+        
+        return { width: nodeWidth, height: nodeHeight };
+    }
+
     // 使用原生SVG简单渲染节点和连线
     function drawGraph(data) {
         console.log('drawGraph 函数被调用，数据:', data);
@@ -1552,8 +2052,16 @@ ${introText}
         const height = svg.clientHeight || 500;
         console.log('SVG 尺寸:', width, 'x', height);
 
+        // 保存焦点问题元素（如果存在）
+        const focusQuestion = svg.querySelector('#focus-question');
+        
         // 清空
         while (svg.firstChild) svg.removeChild(svg.firstChild);
+        
+        // 重新添加焦点问题（如果存在）
+        if (focusQuestion) {
+            svg.appendChild(focusQuestion);
+        }
 
         // 先渲染连线
         const nodeById = new Map(data.nodes.map(n => [n.id, n]));
@@ -1562,11 +2070,14 @@ ${introText}
             const target = nodeById.get(link.target);
             if (!source || !target) return;
             
-            // 计算连线起点和终点（矩形节点边缘）
-            const sourceWidth = Math.max(80, (source.label || '').length * 8);
-            const sourceHeight = 40;
-            const targetWidth = Math.max(80, (target.label || '').length * 8);
-            const targetHeight = 40;
+            // 计算连线起点和终点（矩形节点边缘）- 使用新的尺寸计算
+            const sourceDimensions = calculateNodeDimensions(source.label || '', 80, 40, 24);
+            const targetDimensions = calculateNodeDimensions(target.label || '', 80, 40, 24);
+            
+            const sourceWidth = source.width || sourceDimensions.width;
+            const sourceHeight = source.height || sourceDimensions.height;
+            const targetWidth = target.width || targetDimensions.width;
+            const targetHeight = target.height || targetDimensions.height;
             
             // 判断节点间的层次关系
             const isHierarchical = isHierarchicalConnection(source, target, data.nodes, data.links);
@@ -1722,9 +2233,13 @@ ${introText}
             const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('data-node-id', node.id);
 
-            // 计算节点尺寸 - 优先使用保存的尺寸，否则使用默认值
-            const nodeWidth = node.width || Math.max(80, (node.label || `节点${idx + 1}`).length * 8);
-            const nodeHeight = node.height || 40;
+            // 计算节点尺寸 - 根据文字内容自动调整
+            const nodeLabel = node.label || `节点${idx + 1}`;
+            const nodeDimensions = calculateNodeDimensions(nodeLabel, 80, 40, 24); // 增加内边距到24px
+            
+            // 优先使用保存的尺寸，如果没有保存则使用计算出的尺寸
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
             const radius = 8; // 圆角半径
 
             // 设置组的位置（使用绝对定位，确保拖动时连线能正确跟随）
@@ -1755,8 +2270,9 @@ ${introText}
             // 创建文字（相对于组的中心位置）
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('x', 0); // 相对于组的中心位置
-            text.setAttribute('y', 4); // 相对于组的中心位置
+            text.setAttribute('y', 0); // 相对于组的中心位置，垂直居中
             text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle'); // 确保垂直居中
             text.setAttribute('font-size', node.fontSize || '12'); // 优先使用保存的字体大小
             
             // 添加调试信息
@@ -1770,7 +2286,7 @@ ${introText}
             text.setAttribute('fill', 'white');
             text.setAttribute('font-weight', '500');
             text.setAttribute('pointer-events', 'none'); // 防止文字阻挡点击
-            text.textContent = node.label || `节点${idx + 1}`;
+            text.textContent = nodeLabel;
 
             // 设置节点样式和属性
             g.style.pointerEvents = 'all';
@@ -3430,15 +3946,98 @@ ${introText}
         
         // 清理下方文本区域的加载状态
         const aiIntroText = document.getElementById('aiIntroText');
-        if (aiIntroText && aiIntroText.querySelector('.loading-box')) {
-            // 保留文本内容但移除加载动画
-            const loadingText = aiIntroText.querySelector('.loading-text');
-            const contentText = loadingText ? loadingText.textContent.trim() : '';
-            if (contentText && contentText !== '') {
-                // 直接显示文本内容，不添加额外的样式或标记
-                aiIntroText.innerHTML = contentText;
+        if (aiIntroText) {
+            // 如果有loading-box，保留文本内容但移除加载动画
+            if (aiIntroText.querySelector('.loading-box')) {
+                const loadingText = aiIntroText.querySelector('.loading-text');
+                const contentText = loadingText ? loadingText.textContent.trim() : '';
+                if (contentText && contentText !== '') {
+                    // 直接显示文本内容，不添加额外的样式或标记
+                    aiIntroText.innerHTML = contentText;
+                }
+            }
+            // 无论如何都要移除loading类，恢复正常的intro-text样式
+            aiIntroText.className = 'intro-text';
+        }
+    }
+
+    // 显示焦点问题 - 优化居中显示和边界间距，确保与节点位置协调
+    function displayFocusQuestion() {
+        const svg = document.querySelector('.concept-graph');
+        if (!svg || !window.focusQuestion) return;
+        
+        // 移除已存在的焦点问题
+        const existingFocusQuestion = svg.querySelector('#focus-question');
+        if (existingFocusQuestion) {
+            existingFocusQuestion.remove();
+        }
+        
+        // 获取SVG的实际尺寸和viewBox
+        const svgRect = svg.getBoundingClientRect();
+        const svgWidth = svgRect.width || 800;
+        const svgHeight = svgRect.height || 600;
+        
+        // 获取当前viewBox信息
+        const viewBox = svg.getAttribute('viewBox');
+        let viewBoxWidth = svgWidth;
+        let viewBoxHeight = svgHeight;
+        
+        if (viewBox) {
+            const viewBoxParts = viewBox.split(' ');
+            if (viewBoxParts.length === 4) {
+                viewBoxWidth = parseFloat(viewBoxParts[2]);
+                viewBoxHeight = parseFloat(viewBoxParts[3]);
             }
         }
+        
+        // 统一的边界间距 - 与assignCoordinates函数中保持一致
+        const margin = 150; // 左右边界间距，确保不贴边
+        const topMargin = 30; // 顶部间距，保持在顶部位置
+        
+        // 计算焦点问题框的尺寸和位置
+        const focusBoxWidth = Math.max(400, viewBoxWidth - 2 * margin); // 确保最小宽度
+        const focusBoxHeight = 60; // 增加高度
+        const focusBoxX = (viewBoxWidth - focusBoxWidth) / 2; // 水平居中
+        const focusBoxY = topMargin;
+        
+        // 创建焦点问题组
+        const focusGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        focusGroup.setAttribute('id', 'focus-question');
+        
+        // 创建背景矩形
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', focusBoxX);
+        bgRect.setAttribute('y', focusBoxY);
+        bgRect.setAttribute('width', focusBoxWidth);
+        bgRect.setAttribute('height', focusBoxHeight);
+        bgRect.setAttribute('rx', '10');
+        bgRect.setAttribute('fill', '#f8f9fa');
+        bgRect.setAttribute('stroke', '#667eea');
+        bgRect.setAttribute('stroke-width', '2');
+        bgRect.setAttribute('fill-opacity', '0.9');
+        
+        // 创建焦点问题文字
+        const focusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        focusText.setAttribute('x', viewBoxWidth / 2); // 水平居中
+        focusText.setAttribute('y', focusBoxY + focusBoxHeight / 2); // 垂直居中
+        focusText.setAttribute('text-anchor', 'middle');
+        focusText.setAttribute('dominant-baseline', 'middle');
+        focusText.setAttribute('font-size', '16');
+        focusText.setAttribute('font-weight', '600');
+        focusText.setAttribute('fill', '#2c3e50');
+        focusText.textContent = window.focusQuestion;
+        
+        // 将元素添加到组中
+        focusGroup.appendChild(bgRect);
+        focusGroup.appendChild(focusText);
+        
+        // 将焦点问题组添加到SVG的最前面
+        svg.insertBefore(focusGroup, svg.firstChild);
+        
+        console.log('焦点问题已显示:', window.focusQuestion, '位置:', { 
+            x: focusBoxX, y: focusBoxY, width: focusBoxWidth, 
+            viewBoxWidth, viewBoxHeight, svgWidth, svgHeight 
+        });
     }
 
     // 显示消息提示
@@ -3634,6 +4233,9 @@ ${introText}
             defaultText.textContent = '概念图将在这里显示';
             svg.appendChild(defaultText);
         }
+        
+        // 清除焦点问题
+        window.focusQuestion = null;
         
         // 禁用导出按钮
         if (exportBtn) {
@@ -3870,7 +4472,10 @@ ${introText}
         const links = [...graphData.links];
         
         // 动态计算画布尺寸，根据节点数量和内容长度
-        const maxNodeWidth = Math.max(...nodes.map(node => Math.max(100, (node.label || '').length * 10)));
+        const maxNodeWidth = Math.max(...nodes.map(node => {
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            return node.width || nodeDimensions.width;
+        }));
         const maxNodesInLevel = Math.max(...Array.from(assignLayers(nodes, links).values()).map(level => level.length));
         
         // 计算合适的画布尺寸
@@ -3908,7 +4513,10 @@ ${introText}
         const links = [...graphData.links];
         
         // 动态计算画布尺寸，根据节点数量和内容长度
-        const maxNodeWidth = Math.max(...nodes.map(node => Math.max(100, (node.label || '').length * 10)));
+        const maxNodeWidth = Math.max(...nodes.map(node => {
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            return node.width || nodeDimensions.width;
+        }));
         const maxNodesInLevel = Math.max(...Array.from(assignLayers(nodes, links).values()).map(level => level.length));
         
         // 计算合适的画布尺寸
@@ -3933,7 +4541,7 @@ ${introText}
         return { ...graphData, nodes, links };
     }
 
-    // Sugiyama算法步骤1: 层次分配
+    // Sugiyama算法步骤1: 层次分配 - 优化确保第一级关键词节点在最上方
     function assignLayers(nodes, links) {
         console.log('步骤1: 层次分配...');
         
@@ -3954,19 +4562,61 @@ ${introText}
             inDegree.set(target, (inDegree.get(target) || 0) + 1);
         });
         
-        // 找到根节点（入度为0）
-        const roots = nodes.filter(node => inDegree.get(node.id) === 0);
-        
-        if (roots.length === 0) {
-            // 如果没有根节点，选择入度最小的节点作为根
-            const minInDegree = Math.min(...inDegree.values());
-            const pseudoRoots = nodes.filter(node => inDegree.get(node.id) === minInDegree);
-            roots.push(...pseudoRoots);
+        // 获取当前关键词（第一级节点）
+        let currentKeyword = '';
+        if (window.focusQuestion) {
+            const match = window.focusQuestion.match(/焦点问题：(.*?)(是什么|\?|\.\.\.)/);
+            if (match) {
+                currentKeyword = match[1].trim();
+            }
         }
         
-        // 使用BFS进行层次分配
+        // 如果没有关键词，尝试从元数据中获取
+        if (!currentKeyword && window.currentGraphData && window.currentGraphData.metadata) {
+            currentKeyword = window.currentGraphData.metadata.keyword || '';
+        }
+        
+        // 找到第一级关键词节点
+        let firstLevelNodes = [];
+        if (currentKeyword) {
+            // 查找与关键词匹配的节点
+            const keywordNodes = nodes.filter(node => {
+                const nodeLabel = node.label || '';
+                return nodeLabel === currentKeyword || 
+                       nodeLabel.includes(currentKeyword) || 
+                       currentKeyword.includes(nodeLabel);
+            });
+            
+            if (keywordNodes.length > 0) {
+                firstLevelNodes = keywordNodes;
+            }
+        }
+        
+        // 如果没有找到关键词节点，使用入度为0的节点作为第一级
+        if (firstLevelNodes.length === 0) {
+            firstLevelNodes = nodes.filter(node => inDegree.get(node.id) === 0);
+        }
+        
+        // 如果仍然没有找到，选择入度最小的节点作为第一级
+        if (firstLevelNodes.length === 0) {
+            const minInDegree = Math.min(...inDegree.values());
+            firstLevelNodes = nodes.filter(node => inDegree.get(node.id) === minInDegree);
+        }
+        
+        // 确保第一级节点在数组的第一位
+        if (firstLevelNodes.length > 0) {
+            // 将第一级节点放在数组开头
+            const firstNode = firstLevelNodes[0];
+            const nodeIndex = nodes.findIndex(n => n.id === firstNode.id);
+            if (nodeIndex > 0) {
+                nodes.splice(nodeIndex, 1);
+                nodes.unshift(firstNode);
+            }
+        }
+        
+        // 使用BFS进行层次分配，从第一级节点开始
         let currentLevel = 0;
-        let currentNodes = [...roots];
+        let currentNodes = [...firstLevelNodes];
         
         while (currentNodes.length > 0) {
             levels.set(currentLevel, currentNodes);
@@ -3989,13 +4639,13 @@ ${introText}
             currentLevel++;
         }
         
-        // 处理孤立的节点
+        // 处理孤立的节点，将它们放在最后一级
         const isolatedNodes = nodes.filter(node => !visited.has(node.id));
         if (isolatedNodes.length > 0) {
             levels.set(currentLevel, isolatedNodes);
         }
         
-        console.log(`层次分配完成，共${levels.size}层`);
+        console.log(`层次分配完成，共${levels.size}层，第一级节点:`, firstLevelNodes.map(n => n.label));
         return levels;
     }
 
@@ -4146,61 +4796,56 @@ ${introText}
         return !(maxX1 < minX2 || maxX2 < minX1);
     }
     
-    // Sugiyama算法步骤3: 坐标分配
+    // Sugiyama算法步骤3: 坐标分配 - 优化确保所有节点都在可视区域内，并将第一级节点放在焦点问题下方
     function assignCoordinates(nodes, orderedLevels, width, height) {
         console.log('步骤3: 坐标分配...');
         
-        const margin = 100; // 减少边距，使布局更紧凑
-        const levelHeight = Math.max(80, Math.min(120, (height - 2 * margin) / (orderedLevels.size + 1))); // 动态层间距离：80-120px
+        // 统一的边界间距，确保所有节点都在可视区域内
+        const margin = 150; // 左右边界间距，确保不贴边
+        const topMargin = 90; // 减小顶部边界间距，让第一级节点更接近焦点问题
+        const bottomMargin = 150; // 底部边界间距
+        
+        // 计算可用的布局区域
+        const availableWidth = width - 2 * margin;
+        const availableHeight = height - topMargin - bottomMargin;
+        
+        // 计算层次间距，确保所有层次都在可用区域内
+        const levelHeight = Math.max(100, Math.min(140, availableHeight / (orderedLevels.size + 1)));
         
         orderedLevels.forEach((levelNodes, level) => {
-            const y = margin + (level + 1) * levelHeight;
+            // 计算当前层次的Y坐标，确保在可用区域内
+            // 修改：第一级节点放在焦点问题下方(topMargin+80)，其他各级依次向下摆放
+            const y = level === 0 
+                ? topMargin + 80 // 第一级节点直接放在焦点问题下方
+                : topMargin + 80 + level * levelHeight; // 其他级节点依次向下摆放
             
             if (levelNodes.length === 1) {
-                // 单节点居中
+                // 单节点水平居中
                 levelNodes[0].x = width / 2;
                 levelNodes[0].y = y;
             } else {
-                // 多节点均匀分布，确保不重叠
+                // 多节点均匀分布，确保不重叠且在可用宽度内
                 const totalNodeWidth = levelNodes.reduce((total, node) => {
-                    const nodeWidth = Math.max(100, (node.label || '').length * 10); // 增加节点宽度
+                    const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+                    const nodeWidth = node.width || nodeDimensions.width;
                     return total + nodeWidth;
                 }, 0);
                 
-                // 根据页面尺寸和节点数量动态计算间距，使同级节点更紧凑
-                const availableWidth = width - 2 * margin;
-                const minSpacing = Math.max(40, Math.min(80, availableWidth / (levelNodes.length + 2))); // 更紧凑间距：40-80px
-                const requiredWidth = totalNodeWidth + (levelNodes.length - 1) * minSpacing;
+                // 计算节点间距，确保所有节点都在可用宽度内
+                const totalSpacing = availableWidth - totalNodeWidth;
+                const spacing = totalSpacing / (levelNodes.length - 1);
                 
-                let startX;
-                if (requiredWidth <= availableWidth) {
-                    // 如果总宽度在范围内，居中分布
-                    startX = (width - requiredWidth) / 2;
-                } else {
-                    // 如果总宽度超出范围，使用更紧凑的间距
-                    const compactSpacing = Math.max(30, (availableWidth - totalNodeWidth) / (levelNodes.length - 1));
-                    startX = margin;
-                    
-                    // 使用紧凑间距重新计算
-                    let currentX = startX;
-                    levelNodes.forEach((node, index) => {
-                        const nodeWidth = Math.max(100, (node.label || '').length * 10);
-                        
-                        if (index === 0) {
-                            node.x = startX + nodeWidth / 2;
-                        } else {
-                            currentX += compactSpacing;
-                            node.x = currentX + nodeWidth / 2;
-                            currentX += nodeWidth;
-                        }
-                        node.y = y;
-                    });
-                    return; // 提前返回，避免重复计算
-                }
+                // 确保最小间距
+                const minSpacing = Math.max(80, spacing);
+                
+                // 重新计算起始位置，确保居中
+                const requiredWidth = totalNodeWidth + (levelNodes.length - 1) * minSpacing;
+                const startX = (width - requiredWidth) / 2;
                 
                 let currentX = startX;
                 levelNodes.forEach((node, index) => {
-                    const nodeWidth = Math.max(100, (node.label || '').length * 10);
+                    const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+                    const nodeWidth = node.width || nodeDimensions.width;
                     
                     if (index === 0) {
                         node.x = startX + nodeWidth / 2;
@@ -4214,7 +4859,33 @@ ${introText}
             }
         });
         
-        console.log('坐标分配完成');
+        // 严格的边界验证，确保所有节点都在边界内
+        nodes.forEach(node => {
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
+            
+            // 确保节点不超出左右边界，增加额外的安全边距
+            const safeMargin = margin + 20; // 额外20px安全边距
+            if (node.x - nodeWidth / 2 < safeMargin) {
+                node.x = safeMargin + nodeWidth / 2;
+            }
+            if (node.x + nodeWidth / 2 > width - safeMargin) {
+                node.x = width - safeMargin - nodeWidth / 2;
+            }
+            
+            // 确保节点不超出上下边界，增加额外的安全边距
+            const safeTopMargin = topMargin + 20; // 额外20px安全边距
+            const safeBottomMargin = bottomMargin + 20; // 额外20px安全边距
+            if (node.y - nodeHeight / 2 < safeTopMargin) {
+                node.y = safeTopMargin + nodeHeight / 2;
+            }
+            if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                node.y = height - safeBottomMargin - nodeHeight / 2;
+            }
+        });
+        
+        console.log('坐标分配完成，严格边界验证通过');
     }
 
 
@@ -4223,13 +4894,19 @@ ${introText}
     function adjustViewBox(nodes, baseWidth, baseHeight) {
         if (!nodes || nodes.length === 0) return;
         
+        // 统一的边界间距
+        const margin = 150; // 左右边界间距
+        const topMargin = 180; // 顶部边界间距（为焦点问题留出空间）
+        const bottomMargin = 150; // 底部边界间距
+        
         // 计算所有节点的边界
         let minX = Infinity, minY = Infinity;
         let maxX = -Infinity, maxY = -Infinity;
         
         nodes.forEach(node => {
-            const nodeWidth = Math.max(80, (node.label || '').length * 8);
-            const nodeHeight = 40;
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
             
             minX = Math.min(minX, node.x - nodeWidth / 2);
             minY = Math.min(minY, node.y - nodeHeight / 2);
@@ -4245,10 +4922,13 @@ ${introText}
                 
                 if (source && target) {
                     // 计算连线起点和终点
-                    const sourceWidth = Math.max(80, (source.label || '').length * 8);
-                    const sourceHeight = 40;
-                    const targetWidth = Math.max(80, (target.label || '').length * 8);
-                    const targetHeight = 40;
+                    const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 40, 24);
+                    const targetDimensions = calculateNodeDimensions(target.label || '', 100, 40, 24);
+                    
+                    const sourceWidth = source.width || sourceDimensions.width;
+                    const sourceHeight = source.height || sourceDimensions.height;
+                    const targetWidth = target.width || targetDimensions.width;
+                    const targetHeight = target.height || targetDimensions.height;
                     
                     // 连线起点和终点
                     let startX, startY, endX, endY;
@@ -4289,8 +4969,6 @@ ${introText}
                     const arrowX = endX - (endX - startX) * arrowOffset;
                     const arrowY = endY - (endY - startY) * arrowOffset;
                     
-
-                    
                     // 考虑连线标签
                     const textWidth = Math.max(60, (link.label || '双击编辑').length * 8);
                     const midX = (startX + endX) / 2;
@@ -4319,12 +4997,18 @@ ${introText}
             });
         }
         
-        // 添加更大的边距，确保所有元素都在可视范围内
-        const margin = 150;
+        // 考虑焦点问题的位置
+        if (window.focusQuestion) {
+            // 焦点问题位于顶部，确保包含在内
+            minY = Math.min(minY, 0);
+            maxY = Math.max(maxY, 120); // 焦点问题的高度 + 边距
+        }
+        
+        // 使用统一的边界间距，确保所有元素都在可视范围内
         minX = Math.max(0, minX - margin);
-        minY = Math.max(0, minY - margin);
+        minY = Math.max(0, minY - topMargin);
         maxX = Math.min(baseWidth, maxX + margin);
-        maxY = Math.min(baseHeight, maxY + margin);
+        maxY = Math.min(baseHeight, maxY + bottomMargin);
         
         // 计算新的viewBox
         const newWidth = maxX - minX;
