@@ -441,6 +441,47 @@ ${introText}
         }
     }
 
+    // 清除之前的概念图内容
+    function clearPreviousConceptMap() {
+        console.log('开始清除之前的概念图内容...');
+        
+        // 清空AI介绍文字
+        const aiIntroText = document.getElementById('aiIntroText');
+        if (aiIntroText) {
+            aiIntroText.innerHTML = '';
+            aiIntroText.className = 'intro-text';
+        }
+        
+        // 清空SVG画布内容
+        const svg = document.querySelector('.concept-graph');
+        if (svg) {
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+        }
+        
+        // 清除焦点问题
+        window.focusQuestion = null;
+        
+        // 清空当前图数据
+        currentGraphData = { nodes: [], links: [] };
+        
+        // 重置状态栏
+        updateStatusBar({ nodes: [], links: [] });
+        
+        // 清空历史记录
+        clearHistory();
+        
+        // 重置所有相关状态
+        selectedNodeId = null;
+        isDragging = false;
+        isLinkCreationMode = false;
+        linkSourceNodeId = null;
+        linkTargetNodeId = null;
+        
+        console.log('概念图内容清除完成');
+    }
+
     // 生成概念图的主函数
     async function generateConceptMap(type, data) {
         console.log('generateConceptMap函数被调用，类型:', type, '数据:', data);
@@ -451,6 +492,11 @@ ${introText}
         }
         
         isGenerating = true;
+        console.log('开始生成概念图流程...');
+        
+        // 清除之前的概念图内容
+        console.log('清除之前的概念图内容...');
+        clearPreviousConceptMap();
         
         try {
             // 在每次API调用前，确保获取最新的端口信息
@@ -593,23 +639,29 @@ ${introText}
             // 构建概念图生成提示词
             let conceptPrompt = '';
             if (type === 'keyword') {
-                conceptPrompt = `请分析关键词"${data.keyword}"，提取相关概念和关系，返回JSON格式：
+                conceptPrompt = `基于关键词"${data.keyword}"生成概念图。要求：
+1. 以"${data.keyword}"为中心，生成6-8个相关概念
+2. 概念用简洁关键词（2-4字）
+3. 建立准确的逻辑关系
 
-请提取核心概念、相关概念、概念间的关系，返回严格的JSON格式：
+返回JSON格式：
 {
   "nodes": [
     {"id": "1", "label": "${data.keyword}", "type": "main", "description": "中心概念", "importance": 10},
-    {"id": "2", "label": "相关概念A", "type": "sub", "description": "与中心概念相关的概念", "importance": 8},
-    {"id": "3", "label": "相关概念B", "type": "sub", "description": "与中心概念相关的概念", "importance": 7}
+    {"id": "2", "label": "相关概念1", "type": "sub", "description": "简述", "importance": 8},
+    {"id": "3", "label": "相关概念2", "type": "sub", "description": "简述", "importance": 8},
+    {"id": "4", "label": "相关概念3", "type": "sub", "description": "简述", "importance": 7},
+    {"id": "5", "label": "相关概念4", "type": "sub", "description": "简述", "importance": 7}
   ],
   "links": [
-    {"source": "1", "target": "2", "label": "导致", "type": "causal", "strength": 8},
-    {"source": "1", "target": "3", "label": "具有", "type": "attribute", "strength": 7}
+    {"source": "1", "target": "2", "label": "关系词", "type": "relation", "strength": 8},
+    {"source": "1", "target": "3", "label": "关系词", "type": "relation", "strength": 8},
+    {"source": "2", "target": "4", "label": "关系词", "type": "relation", "strength": 7}
   ],
   "metadata": {
     "keyword": "${data.keyword}",
-    "summary": "基于关键词'${data.keyword}'生成的概念图",
-    "domain": "通用领域"
+    "summary": "概念图",
+    "domain": "相关领域"
   }
 }`;
             } else {
@@ -644,46 +696,36 @@ ${introText}
 注意：请确保提取的概念和关系都直接来源于用户输入的文本，不要添加文本中未提及的内容。`;
             }
             
-            // 构建AI介绍生成提示词
-            let introPrompt = '';
-            if (type === 'keyword') {
-                introPrompt = `请为关键词"${data.keyword}"生成一段简洁的介绍文字，要求：
-1. 介绍内容需要采用特定的概念关系链结构：概念1（关键词）关系 概念2，然后接下来的内容围绕概念2 关系 概念3，以此类推
-2. 关系词要具体准确，避免使用"包含"等过于宽泛的词，优先使用：发生在、导致、建立、推动、促进、影响、具有、位于、属于、是等具体关系词
-3. 整体内容必须与关键词"${data.keyword}"密切相关
-4. 语言要通俗易懂，适合一般读者理解
-5. 字数必须控制在200字左右
-6. 确保概念之间的关系连贯，形成一个完整的知识链
-
-请直接返回介绍文字，不要包含其他格式标记。`;
-            } else {
-                introPrompt = `请为以下描述内容生成一段简洁的介绍文字，要求：
-1. 总结描述的核心要点
-2. 解释相关概念的含义
-3. 语言要通俗易懂，适合一般读者理解
-4. 字数必须控制在100-200字之间，不能超过200字
-
-描述内容：${data.description}
-
-请直接返回介绍文字，不要包含其他格式标记。`;
-            }
-            
-            let conceptResponse, introResponse;
+            let conceptResponse;
             
             if (type === 'keyword') {
-                // 关键词模式：并行调用两个API
-                [conceptResponse, introResponse] = await Promise.all([
-                    fetch(`${API_BASE_URL}/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: conceptPrompt })
-                    }),
-                    fetch(`${API_BASE_URL}/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: introPrompt })
-                    })
-                ]);
+                // 关键词模式：只调用概念图生成API，直接生成节点和关系
+                console.log('准备发送关键词生成请求...');
+                console.log('请求URL:', `${API_BASE_URL}/chat`);
+                console.log('请求内容:', conceptPrompt.substring(0, 200) + '...');
+                
+                conceptResponse = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: conceptPrompt })
+                });
+                
+                console.log('概念图生成API响应状态:', conceptResponse.status);
+                
+                // 为关键词模式生成简单的说明文字
+                const aiIntroduction = document.querySelector('.ai-introduction');
+                const aiIntroText = document.getElementById('aiIntroText');
+                if (aiIntroText) {
+                    aiIntroText.innerHTML = `<div class="keyword-mode-display">
+                        <h5>基于关键词生成概念图：</h5>
+                        <p>正在为"${data.keyword}"生成相关概念和关系...</p>
+                    </div>`;
+                    aiIntroText.className = 'intro-text keyword-mode';
+                }
+                
+                if (aiIntroduction) {
+                    aiIntroduction.classList.add('keyword-mode');
+                }
             } else {
                 // 文本分析模式：只调用概念图生成API，不生成介绍内容
                 conceptResponse = await fetch(`${API_BASE_URL}/chat`, {
@@ -694,11 +736,14 @@ ${introText}
                 
                 // 直接使用用户输入的文本作为介绍内容
                 const userDescription = data.description;
-                aiIntroText.innerHTML = `<div class="user-input-display">
-                    <h5>用户输入内容：</h5>
-                    <p>${userDescription}</p>
-                </div>`;
-                aiIntroText.className = 'intro-text';
+                const aiIntroText = document.getElementById('aiIntroText');
+                if (aiIntroText) {
+                    aiIntroText.innerHTML = `<div class="user-input-display">
+                        <h5>用户输入内容：</h5>
+                        <p>${userDescription}</p>
+                    </div>`;
+                    aiIntroText.className = 'intro-text';
+                }
                 
                 // 为AI介绍区域添加文本分析模式样式
                 const aiIntroduction = document.querySelector('.ai-introduction');
@@ -712,10 +757,11 @@ ${introText}
             }
             
             const conceptResult = await conceptResponse.json();
-            const introResult = type === 'keyword' ? await introResponse.json() : null;
+            console.log('概念图生成API响应结果:', conceptResult);
             
             // 处理概念图生成结果
             if (conceptResult.success) {
+                console.log('概念图生成成功，开始解析JSON...');
                 try {
                     const content = conceptResult.response;
                     const startIdx = content.indexOf('{');
@@ -726,6 +772,21 @@ ${introText}
                         const conceptData = JSON.parse(jsonContent);
                         const graphData = convertToD3Format(conceptData);
                         displayConceptMap(graphData);
+                        
+                        // 更新关键词模式的显示信息
+                        if (type === 'keyword') {
+                            const aiIntroText = document.getElementById('aiIntroText');
+                            if (aiIntroText) {
+                                const nodeCount = conceptData.nodes ? conceptData.nodes.length : 0;
+                                const linkCount = conceptData.links ? conceptData.links.length : 0;
+                                aiIntroText.innerHTML = `<div class="keyword-mode-display">
+                                    <h5>基于关键词"${data.keyword}"生成的概念图</h5>
+                                    <p>已生成 ${nodeCount} 个概念节点和 ${linkCount} 个关系连接</p>
+                                    <p class="generation-info">概念图已直接基于关键词生成，包含相关概念及其逻辑关系。</p>
+                                </div>`;
+                            }
+                            showMessage('概念图生成成功！', 'success');
+                        }
                     } else {
                         throw new Error('响应中未找到有效的JSON数据');
                     }
@@ -734,25 +795,29 @@ ${introText}
                     showMessage('概念图数据解析失败', 'warning');
                 }
             } else {
-                showMessage(`概念图生成失败: ${conceptResult.error || '未知错误'}`, 'warning');
-            }
-            
-            // 处理AI介绍生成结果（仅在关键词模式下）
-            if (type === 'keyword') {
-                if (introResult && introResult.success) {
-                    const introText = introResult.response;
-                    // 直接显示纯文本内容，不添加额外的样式或标记
-                    aiIntroText.innerHTML = introText;
-                    aiIntroText.className = 'intro-text';
-                    showMessage('AI介绍生成成功！', 'success');
-                    
-                    // 自动进行三元组提取
-                    console.log('开始自动提取三元组...');
-                    extractTriplesFromIntro(introText);
-                } else if (introResult) {
-                    aiIntroText.innerHTML = 'AI介绍生成失败，请稍后重试。';
-                    aiIntroText.className = 'intro-text';
-                    showMessage('AI介绍生成失败', 'warning');
+                let errorMessage = '未知错误';
+                if (conceptResult.error) {
+                    if (conceptResult.error.includes('timeout') || conceptResult.error.includes('超时')) {
+                        errorMessage = 'AI服务响应超时，请稍后重试';
+                    } else if (conceptResult.error.includes('HTTPSConnectionPool')) {
+                        errorMessage = 'AI服务连接超时，请检查网络或稍后重试';
+                    } else {
+                        errorMessage = conceptResult.error;
+                    }
+                }
+                
+                showMessage(`概念图生成失败: ${errorMessage}`, 'warning');
+                
+                // 更新错误状态的显示
+                if (type === 'keyword') {
+                    const aiIntroText = document.getElementById('aiIntroText');
+                    if (aiIntroText) {
+                        aiIntroText.innerHTML = `<div class="keyword-mode-display error">
+                            <h5>概念图生成失败</h5>
+                            <p>${errorMessage}</p>
+                            <p class="retry-hint">建议：稍等片刻后重试，或尝试更简单的关键词</p>
+                        </div>`;
+                    }
                 }
             }
             
@@ -1268,11 +1333,78 @@ ${introText}
     
 
 
+    // 分析节点层次关系
+    function analyzeNodeLevels(nodes, links, firstLevelNode) {
+        console.log('分析节点层次关系...');
+        
+        const nodeLevels = new Map();
+        const visited = new Set();
+        
+        // 从第一级节点开始BFS遍历
+        if (firstLevelNode) {
+            nodeLevels.set(firstLevelNode.id, 0);
+            visited.add(firstLevelNode.id);
+        }
+        
+        // 找到直接连接到第一级节点的节点（第二级）
+        const secondLevelNodes = [];
+        links.forEach(link => {
+            if (link.source === firstLevelNode?.id && !visited.has(link.target)) {
+                secondLevelNodes.push(link.target);
+                nodeLevels.set(link.target, 1);
+                visited.add(link.target);
+            } else if (link.target === firstLevelNode?.id && !visited.has(link.source)) {
+                secondLevelNodes.push(link.source);
+                nodeLevels.set(link.source, 1);
+                visited.add(link.source);
+            }
+        });
+        
+        // 继续BFS遍历，找到第三级及更深层次的节点
+        let currentLevel = 1;
+        let currentLevelNodes = [...secondLevelNodes];
+        
+        while (currentLevelNodes.length > 0) {
+            const nextLevelNodes = [];
+            currentLevel++;
+            
+            currentLevelNodes.forEach(nodeId => {
+                links.forEach(link => {
+                    if (link.source === nodeId && !visited.has(link.target)) {
+                        nextLevelNodes.push(link.target);
+                        nodeLevels.set(link.target, currentLevel);
+                        visited.add(link.target);
+                    } else if (link.target === nodeId && !visited.has(link.source)) {
+                        nextLevelNodes.push(link.source);
+                        nodeLevels.set(link.source, currentLevel);
+                        visited.add(link.source);
+                    }
+                });
+            });
+            
+            currentLevelNodes = nextLevelNodes;
+        }
+        
+        // 为未访问的节点分配默认层次
+        nodes.forEach(node => {
+            if (!visited.has(node.id)) {
+                nodeLevels.set(node.id, 1); // 默认为第二级
+            }
+        });
+        
+        console.log('节点层次分析结果:', Array.from(nodeLevels.entries()).map(([id, level]) => {
+            const node = nodes.find(n => n.id === id);
+            return `${node?.label || id}: 第${level + 1}级`;
+        }));
+        
+        return nodeLevels;
+    }
+
     // 智能初始化节点位置 - 优化确保所有节点在边界内，第一级节点在焦点问题下方
     function initializeNodePositions(nodes, width, height) {
         // 统一的边界间距
-        const margin = 150; // 左右边界间距
-        const topMargin = 90; // 减小顶部边界间距，与assignCoordinates保持一致
+        const margin = 200; // 增加左右边界间距，与assignCoordinates保持一致
+        const topMargin = 120; // 调整顶部边界间距，与assignCoordinates保持一致
         const bottomMargin = 150; // 底部边界间距
         
         // 计算可用的布局区域
@@ -1296,102 +1428,105 @@ ${introText}
             }
         }
         
-        if (nodes.length === 1) {
-            // 单个节点放在焦点问题正下方
+        // 强制第一级关键词节点居中放置
+        if (firstLevelNode) {
+            firstLevelNode.x = centerX; // 严格居中
+            firstLevelNode.y = topMargin + 100; // 焦点问题正下方，增加距离
+            console.log(`第一级关键词节点"${firstLevelNode.label}"已强制居中放置在 (${centerX}, ${topMargin + 100})`);
+        } else if (nodes.length > 0) {
+            // 如果没有识别到第一级节点，将第一个节点作为关键词节点居中
             nodes[0].x = centerX;
-            nodes[0].y = topMargin + 80; // 焦点问题下方
-        } else if (nodes.length === 2) {
-            if (firstLevelNode) {
-                // 第一级节点在焦点问题下方，其他节点在第一级下方
-                const otherNode = nodes.find(n => n.id !== firstLevelNode.id);
-                firstLevelNode.x = centerX;
-                firstLevelNode.y = topMargin + 80; // 焦点问题正下方
-                otherNode.x = centerX;
-                otherNode.y = topMargin + 220; // 第一级节点下方
-            } else {
-                // 两个节点垂直排列，第一个在焦点问题下方
-                nodes[0].x = centerX;
-                nodes[0].y = topMargin + 80; // 焦点问题正下方
-                nodes[1].x = centerX;
-                nodes[1].y = topMargin + 220; // 第一个节点下方
-            }
-        } else {
-            if (firstLevelNode) {
-                // 第一级节点在焦点问题下方居中
-                firstLevelNode.x = centerX;
-                firstLevelNode.y = topMargin + 80; // 焦点问题正下方
-                
-                // 其他节点使用分层布局，依次向下摆放
-                const otherNodes = nodes.filter(n => n.id !== firstLevelNode.id);
-                const levelHeight = Math.max(100, Math.min(140, availableHeight / (otherNodes.length + 1)));
-                
-                // 对其他节点进行简单排序，以便分层展示
-                otherNodes.sort((a, b) => {
-                    // 如果有预设y坐标，根据y坐标排序
-                    if (a.y !== undefined && b.y !== undefined) {
-                        return a.y - b.y;
-                    }
-                    return 0;
-                });
-                
-                // 为其他节点分配水平位置
-                const nodesPerRow = Math.ceil(Math.sqrt(otherNodes.length));
-                otherNodes.forEach((node, index) => {
-                    const level = Math.floor(index / nodesPerRow) + 1; // 从第2层开始
-                    const posInLevel = index % nodesPerRow;
-                    const levelWidth = Math.min(availableWidth, nodesPerRow * 120);
-                    const xStep = levelWidth / (nodesPerRow + 1);
-                    
-                    node.x = centerX - levelWidth/2 + (posInLevel + 1) * xStep;
-                    node.y = topMargin + 80 + level * levelHeight; // 从第一级节点下方开始
-                });
-            } else {
-                // 第一个节点放在焦点问题正下方，其他节点分层布局
-                nodes[0].x = centerX;
-                nodes[0].y = topMargin + 80; // 焦点问题正下方
-                
-                const otherNodes = nodes.slice(1);
-                const levelHeight = Math.max(100, Math.min(140, availableHeight / (otherNodes.length + 1)));
-                
-                // 为其他节点分配水平位置
-                const nodesPerRow = Math.ceil(Math.sqrt(otherNodes.length));
-                otherNodes.forEach((node, index) => {
-                    const level = Math.floor(index / nodesPerRow) + 1; // 从第2层开始
-                    const posInLevel = index % nodesPerRow;
-                    const levelWidth = Math.min(availableWidth, nodesPerRow * 120);
-                    const xStep = levelWidth / (nodesPerRow + 1);
-                    
-                    node.x = centerX - levelWidth/2 + (posInLevel + 1) * xStep;
-                    node.y = topMargin + 80 + level * levelHeight; // 从第一级节点下方开始
-                });
-            }
+            nodes[0].y = topMargin + 100;
+            console.log(`第一个节点"${nodes[0].label}"已居中放置在 (${centerX}, ${topMargin + 100})`);
         }
         
-        // 严格的边界验证，确保所有节点都在边界内
+        // 确保第一级节点严格居中，不受后续布局影响
+        if (firstLevelNode) {
+            firstLevelNode.x = centerX;
+            firstLevelNode.y = topMargin + 100;
+        }
+        
+        // 对所有其他节点应用分层对称布局
+        const otherNodes = firstLevelNode ? 
+            nodes.filter(n => n.id !== firstLevelNode.id) : 
+            nodes.slice(1);
+            
+        if (otherNodes.length > 0) {
+            // 基于连接关系分析节点层次
+            const nodeLevels = analyzeNodeLevels(otherNodes, window.currentGraphData?.links || [], firstLevelNode);
+            const maxNodesPerLevel = 4; // 每层最多4个节点
+            const levelHeight = Math.max(120, Math.min(160, availableHeight / Math.ceil(otherNodes.length / maxNodesPerLevel + 1)));
+            
+            // 按层次分组节点
+            const levelGroups = new Map();
+            otherNodes.forEach(node => {
+                const level = nodeLevels.get(node.id) || 1;
+                if (!levelGroups.has(level)) {
+                    levelGroups.set(level, []);
+                }
+                levelGroups.get(level).push(node);
+            });
+            
+            // 为每个层次应用对称布局
+            levelGroups.forEach((levelNodes, level) => {
+                const currentLevel = level;
+                const levelY = topMargin + 100 + currentLevel * levelHeight;
+                
+                // 为当前层级应用严格对称布局
+                const symmetricLayout = calculateSymmetricLayout(levelNodes, centerX, availableWidth, levelY);
+                levelNodes.forEach((node, index) => {
+                    node.x = symmetricLayout[index].x;
+                    node.y = symmetricLayout[index].y;
+                });
+                
+                console.log(`第${currentLevel + 1}级的${levelNodes.length}个节点已对称分布在y=${levelY}`);
+            });
+        }
+        
+        // 严格的边界验证，确保所有节点都在边界内，但保护第一级关键词节点的居中位置
         nodes.forEach(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
             const nodeWidth = node.width || nodeDimensions.width;
             const nodeHeight = node.height || nodeDimensions.height;
+            
+            // 检查是否是第一级关键词节点
+            const isFirstLevelKeywordNode = firstLevelNode && node.id === firstLevelNode.id;
             
             // 增加安全边距
             const safeMargin = margin + 20;
             const safeTopMargin = topMargin + 20;
             const safeBottomMargin = bottomMargin + 20;
             
-            // 确保节点不超出左右边界
-            if (node.x - nodeWidth / 2 < safeMargin) {
-                node.x = safeMargin + nodeWidth / 2;
-            }
-            if (node.x + nodeWidth / 2 > width - safeMargin) {
-                node.x = width - safeMargin - nodeWidth / 2;
-            }
-            
-            // 确保节点不超出上下边界
-            if (node.y - nodeHeight / 2 < safeTopMargin) {
-                node.y = safeTopMargin + nodeHeight / 2;
-            }
-            if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
-                node.y = height - safeBottomMargin - nodeHeight / 2;
+            if (isFirstLevelKeywordNode) {
+                // 第一级关键词节点：只检查上下边界，保持水平居中
+                console.log(`保护第一级关键词节点"${node.label}"的居中位置`);
+                
+                // 确保节点不超出上下边界
+                if (node.y - nodeHeight / 2 < safeTopMargin) {
+                    node.y = safeTopMargin + nodeHeight / 2;
+                }
+                if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                    node.y = height - safeBottomMargin - nodeHeight / 2;
+                }
+                // 强制保持水平居中
+                node.x = centerX;
+            } else {
+                // 其他节点：正常的边界检查
+                // 确保节点不超出左右边界
+                if (node.x - nodeWidth / 2 < safeMargin) {
+                    node.x = safeMargin + nodeWidth / 2;
+                }
+                if (node.x + nodeWidth / 2 > width - safeMargin) {
+                    node.x = width - safeMargin - nodeWidth / 2;
+                }
+                
+                // 确保节点不超出上下边界
+                if (node.y - nodeHeight / 2 < safeTopMargin) {
+                    node.y = safeTopMargin + nodeHeight / 2;
+                }
+                if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                    node.y = height - safeBottomMargin - nodeHeight / 2;
+                }
             }
         });
     }
@@ -1405,9 +1540,6 @@ ${introText}
         // 模拟物理力
         for (let iteration = 0; iteration < maxIterations; iteration++) {
             const currentTemp = temperature * Math.pow(coolingFactor, iteration);
-            
-            // 应用斥力（节点间）
-            applyRepulsiveForces(nodes, nodeSpacing, currentTemp);
             
             // 应用引力（连线连接）
             applyAttractiveForces(nodes, links, linkLength, currentTemp);
@@ -1423,33 +1555,7 @@ ${introText}
         }
     }
 
-    // 应用斥力 - 防止节点重叠
-    function applyRepulsiveForces(nodes, nodeSpacing, temperature) {
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const nodeA = nodes[i];
-                const nodeB = nodes[j];
-                
-                const dx = nodeB.x - nodeA.x;
-                const dy = nodeB.y - nodeA.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < nodeSpacing && distance > 0) {
-                    // 计算斥力强度
-                    const force = (nodeSpacing - distance) / distance * temperature * 0.5;
-                    
-                    // 应用斥力
-                    const fx = dx * force;
-                    const fy = dy * force;
-                    
-                    nodeA.vx = (nodeA.vx || 0) - fx;
-                    nodeA.vy = (nodeA.vy || 0) - fy;
-                    nodeB.vx = (nodeB.vx || 0) + fx;
-                    nodeB.vy = (nodeB.vy || 0) + fy;
-                }
-            }
-        }
-    }
+
 
     // 应用引力 - 保持连线连接，并增强第一级节点的引力
     function applyAttractiveForces(nodes, links, linkLength, temperature) {
@@ -1525,8 +1631,8 @@ ${introText}
     // 应用边界力 - 保持节点在可视区域，统一边界间距，确保第一级节点在焦点问题下方
     function applyBoundaryForces(nodes, width, height, temperature) {
         // 统一的边界间距，与层次布局保持一致
-        const margin = 150; // 左右边界间距
-        const topMargin = 90; // 减小顶部边界间距，与assignCoordinates保持一致
+        const margin = 200; // 增加左右边界间距，与assignCoordinates保持一致
+        const topMargin = 120; // 调整顶部边界间距，与assignCoordinates保持一致
         const bottomMargin = 150; // 底部边界间距
         
         // 获取第一级关键词节点
@@ -1546,7 +1652,7 @@ ${introText}
         
         nodes.forEach(node => {
             // 考虑节点尺寸的边界检查
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
             const nodeWidth = node.width || nodeDimensions.width;
             const nodeHeight = node.height || nodeDimensions.height;
             
@@ -1564,22 +1670,25 @@ ${introText}
                 node.vx = (node.vx || 0) + (width - safeMargin - nodeWidth / 2 - node.x) * temperature * 0.2;
             }
             
-            // 第一级节点的特殊边界处理
+            // 第一级节点的特殊边界处理 - 强制严格居中
             if (firstLevelNode && node.id === firstLevelNode.id) {
-                // 第一级节点固定在焦点问题正下方
-                const targetY = topMargin + 80; // 与assignCoordinates中保持一致
-                const yDiff = targetY - node.y;
-                node.vy = (node.vy || 0) + yDiff * temperature * 0.5; // 强力固定在目标位置
+                // 第一级节点强制固定在焦点问题正下方的中心位置
+                const targetY = topMargin + 100; // 与assignCoordinates中保持一致
+                const targetX = width / 2; // 严格居中
                 
-                // 固定到水平居中位置
-                const centerX = width / 2;
-                const xDiff = centerX - node.x;
-                node.vx = (node.vx || 0) + xDiff * temperature * 0.3; // 保持水平居中
+                const yDiff = targetY - node.y;
+                const xDiff = targetX - node.x;
+                
+                // 强力拉回到目标位置
+                node.vy = (node.vy || 0) + yDiff * temperature * 1.0; // 增强Y方向固定力
+                node.vx = (node.vx || 0) + xDiff * temperature * 1.0; // 增强X方向居中力
+                
+                console.log(`强制第一级关键词节点"${node.label}"居中: 目标(${targetX}, ${targetY}), 当前(${node.x.toFixed(1)}, ${node.y.toFixed(1)})`);
             } else {
                 // 普通节点的边界处理，需要避免与第一级节点重叠
                 // 上边界检查 - 确保节点不会上移超过第一级节点的位置
                 if (firstLevelNode) {
-                    const minY = topMargin + 80 + 100; // 第一级节点位置 + 间距
+                    const minY = topMargin + 100 + 100; // 第一级节点位置 + 间距
                     if (node.y < minY) {
                         node.vy = (node.vy || 0) + (minY - node.y) * temperature * 0.3;
                     }
@@ -1638,6 +1747,13 @@ ${introText}
         ensureUniformSpacing(nodes, links);
     }
 
+
+    
+    // 检测两个节点是否重叠
+
+    
+
+
     // 检测连线是否相交
     function hasLinkIntersection(linkA, linkB, nodes) {
         const sourceA = nodes.find(n => n.id === linkA.source);
@@ -1652,6 +1768,436 @@ ${introText}
             sourceA.x, sourceA.y, targetA.x, targetA.y,
             sourceB.x, sourceB.y, targetB.x, targetB.y
         );
+    }
+
+    // 检测连接线是否与节点重叠
+    function hasLinkNodeOverlap(link, nodes) {
+        const source = nodes.find(n => n.id === link.source);
+        const target = nodes.find(n => n.id === link.target);
+        
+        if (!source || !target) return false;
+        
+        // 计算连接线的起点和终点（节点边缘）
+        const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 50, 30);
+        const targetDimensions = calculateNodeDimensions(target.label || '', 100, 50, 30);
+        
+        const sourceWidth = source.width || sourceDimensions.width;
+        const sourceHeight = source.height || sourceDimensions.height;
+        const targetWidth = target.width || targetDimensions.width;
+        const targetHeight = target.height || targetDimensions.height;
+        
+        // 判断节点间的层次关系
+        const isHierarchical = isHierarchicalConnection(source, target, nodes, [link]);
+        
+        let startX, startY, endX, endY;
+        
+        if (isHierarchical) {
+            // 层次连接：下级节点连接到上级节点的下面
+            if (target.y > source.y) {
+                startX = source.x;
+                startY = source.y + sourceHeight / 2;
+                endX = target.x;
+                endY = target.y - targetHeight / 2;
+            } else {
+                startX = source.x;
+                startY = source.y - sourceHeight / 2;
+                endX = target.x;
+                endY = target.y + targetHeight / 2;
+            }
+        } else {
+            // 同级连接：连接到节点的左右
+            const dx = target.x - source.x;
+            if (dx > 0) {
+                startX = source.x + sourceWidth / 2;
+                startY = source.y;
+                endX = target.x - targetWidth / 2;
+                endY = target.y;
+            } else {
+                startX = source.x - sourceWidth / 2;
+                startY = source.y;
+                endX = target.x + targetWidth / 2;
+                endY = target.y;
+            }
+        }
+        
+        // 检查连接线是否与其他节点重叠
+        for (const node of nodes) {
+            if (node.id === link.source || node.id === link.target) continue;
+            
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
+            
+            // 检查线段与矩形是否相交
+            if (lineRectIntersect(startX, startY, endX, endY, 
+                node.x - nodeWidth / 2, node.y - nodeHeight / 2, 
+                nodeWidth, nodeHeight)) {
+                return { hasOverlap: true, overlappingNode: node };
+            }
+        }
+        
+        return { hasOverlap: false };
+    }
+
+    // 检测线段与矩形是否相交
+    function lineRectIntersect(lineStartX, lineStartY, lineEndX, lineEndY, 
+                              rectX, rectY, rectWidth, rectHeight) {
+        // 检查线段的两个端点是否在矩形内
+        if (pointInRect(lineStartX, lineStartY, rectX, rectY, rectWidth, rectHeight) ||
+            pointInRect(lineEndX, lineEndY, rectX, rectY, rectWidth, rectHeight)) {
+            return true;
+        }
+        
+        // 检查线段是否与矩形的四条边相交
+        const rectEdges = [
+            [rectX, rectY, rectX + rectWidth, rectY], // 上边
+            [rectX + rectWidth, rectY, rectX + rectWidth, rectY + rectHeight], // 右边
+            [rectX, rectY + rectHeight, rectX + rectWidth, rectY + rectHeight], // 下边
+            [rectX, rectY, rectX, rectY + rectHeight] // 左边
+        ];
+        
+        for (const edge of rectEdges) {
+            if (lineSegmentsIntersect(lineStartX, lineStartY, lineEndX, lineEndY,
+                edge[0], edge[1], edge[2], edge[3])) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    // 检查点是否在矩形内
+    function pointInRect(px, py, rectX, rectY, rectWidth, rectHeight) {
+        return px >= rectX && px <= rectX + rectWidth && 
+               py >= rectY && py <= rectY + rectHeight;
+    }
+
+    // 计算折线路径点，避开重叠的节点
+    function calculatePolylinePath(link, nodes) {
+        const source = nodes.find(n => n.id === link.source);
+        const target = nodes.find(n => n.id === link.target);
+        
+        if (!source || !target) return null;
+        
+        // 计算连接线的起点和终点（节点边缘）
+        const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 50, 30);
+        const targetDimensions = calculateNodeDimensions(target.label || '', 100, 50, 30);
+        
+        const sourceWidth = source.width || sourceDimensions.width;
+        const sourceHeight = source.height || sourceDimensions.height;
+        const targetWidth = target.width || targetDimensions.width;
+        const targetHeight = target.height || targetDimensions.height;
+        
+        // 判断节点间的层次关系
+        const isHierarchical = isHierarchicalConnection(source, target, nodes, [link]);
+        
+        let startX, startY, endX, endY;
+        
+        if (isHierarchical) {
+            // 层次连接：下级节点连接到上级节点的下面
+            if (target.y > source.y) {
+                startX = source.x;
+                startY = source.y + sourceHeight / 2;
+                endX = target.x;
+                endY = target.y - targetHeight / 2;
+            } else {
+                startX = source.x;
+                startY = source.y - sourceHeight / 2;
+                endX = target.x;
+                endY = target.y + targetHeight / 2;
+            }
+        } else {
+            // 同级连接：连接到节点的左右
+            const dx = target.x - source.x;
+            if (dx > 0) {
+                startX = source.x + sourceWidth / 2;
+                startY = source.y;
+                endX = target.x - targetWidth / 2;
+                endY = target.y;
+            } else {
+                startX = source.x - sourceWidth / 2;
+                startY = source.y;
+                endX = target.x + targetWidth / 2;
+                endY = target.y;
+            }
+        }
+        
+        // 检查是否有重叠
+        const overlapCheck = hasLinkNodeOverlap(link, nodes);
+        if (!overlapCheck.hasOverlap) {
+            // 没有重叠，返回直线路径
+            return {
+                isPolyline: false,
+                path: `M ${startX} ${startY} L ${endX} ${endY}`,
+                waypoints: [{ x: startX, y: startY }, { x: endX, y: endY }]
+            };
+        }
+        
+        // 有重叠，计算折线路径
+        const waypoints = calculateWaypoints(startX, startY, endX, endY, nodes, link);
+        
+        // 构建SVG路径
+        let path = `M ${waypoints[0].x} ${waypoints[0].y}`;
+        for (let i = 1; i < waypoints.length; i++) {
+            path += ` L ${waypoints[i].x} ${waypoints[i].y}`;
+        }
+        
+        return {
+            isPolyline: true,
+            path: path,
+            waypoints: waypoints
+        };
+    }
+
+    // 计算折线的路径点 - 最多只生成3个路径点（2个线段）
+    function calculateWaypoints(startX, startY, endX, endY, nodes, link) {
+        const waypoints = [{ x: startX, y: startY }];
+        
+        // 获取所有可能重叠的节点
+        const overlappingNodes = [];
+        for (const node of nodes) {
+            if (node.id === link.source || node.id === link.target) continue;
+            
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+            const nodeWidth = node.width || nodeDimensions.width;
+            const nodeHeight = node.height || nodeDimensions.height;
+            
+            if (lineRectIntersect(startX, startY, endX, endY, 
+                node.x - nodeWidth / 2, node.y - nodeHeight / 2, 
+                nodeWidth, nodeHeight)) {
+                overlappingNodes.push({
+                    node: node,
+                    x: node.x,
+                    y: node.y,
+                    width: nodeWidth,
+                    height: nodeHeight
+                });
+            }
+        }
+        
+        if (overlappingNodes.length === 0) {
+            // 没有重叠节点，返回直线
+            waypoints.push({ x: endX, y: endY });
+            return waypoints;
+        }
+        
+        // 按距离起点的远近排序重叠节点
+        overlappingNodes.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - startX, 2) + Math.pow(a.y - startY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - startX, 2) + Math.pow(b.y - startY, 2));
+            return distA - distB;
+        });
+        
+        // 只处理第一个重叠节点，创建两段折线
+        const overlapNode = overlappingNodes[0];
+        
+        // 计算单个绕行点 - 只生成一个中间点，形成两段线
+        const detourPoint = calculateSingleDetourPoint(
+            startX, startY, endX, endY, 
+            overlapNode.x, overlapNode.y, 
+            overlapNode.width, overlapNode.height
+        );
+        
+        // 只添加一个绕行点，形成两段折线
+        if (detourPoint) {
+            waypoints.push(detourPoint); // 中间绕行点
+        }
+        
+        // 添加终点
+        waypoints.push({ x: endX, y: endY });
+        
+        return waypoints;
+    }
+
+    // 计算单个绕行点 - 只生成一个中间点，形成两段折线
+    function calculateSingleDetourPoint(startX, startY, endX, endY, 
+                                      nodeX, nodeY, nodeWidth, nodeHeight) {
+        // 计算节点边界
+        const nodeLeft = nodeX - nodeWidth / 2;
+        const nodeRight = nodeX + nodeWidth / 2;
+        const nodeTop = nodeY - nodeHeight / 2;
+        const nodeBottom = nodeY + nodeHeight / 2;
+        
+        // 计算连线的方向
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const isHorizontal = Math.abs(dx) > Math.abs(dy);
+        
+        // 计算绕行距离，确保有足够空间放置文字，增加距离让角度更明显
+        const detourDistance = 80;
+        
+        if (isHorizontal) {
+            // 水平连线，垂直绕行 - 强制向下弯曲
+            if (dx > 0) {
+                // 从左到右
+                if (startX < nodeLeft && endX > nodeRight) {
+                    // 连线穿过节点，需要绕行 - 强制选择下方绕行
+                    const detourY = nodeBottom + detourDistance; // 只使用下方绕行
+                    
+                    // 计算绕行点的X坐标，让两段长度尽量一致
+                    const totalDistance = endX - startX;
+                    const offsetRatio = 0.5; // 使用50%位置，让两段长度一致
+                    const detourX = startX + totalDistance * offsetRatio;
+                    
+                    return { x: detourX, y: detourY };
+                }
+            } else {
+                // 从右到左
+                if (startX > nodeRight && endX < nodeLeft) {
+                    // 强制选择下方绕行
+                    const detourY = nodeBottom + detourDistance;
+                    
+                    // 计算绕行点的X坐标，让两段长度尽量一致
+                    const totalDistance = startX - endX;
+                    const offsetRatio = 0.5; // 使用50%位置，让两段长度一致
+                    const detourX = endX + totalDistance * offsetRatio;
+                    
+                    return { x: detourX, y: detourY };
+                }
+            }
+        } else {
+            // 垂直连线，水平绕行 - 确保折线向下弯曲
+            if (dy > 0) {
+                // 从上到下 - 正常情况，绕行点向下
+                if (startY < nodeTop && endY > nodeBottom) {
+                    const detourX1 = nodeLeft - detourDistance;
+                    const detourX2 = nodeRight + detourDistance;
+                    
+                    const distLeft = Math.abs(startX - detourX1) + Math.abs(endX - detourX1);
+                    const distRight = Math.abs(startX - detourX2) + Math.abs(endX - detourX2);
+                    
+                    const detourX = distLeft < distRight ? detourX1 : detourX2;
+                    
+                    // 计算绕行点的Y坐标，让两段长度尽量一致
+                    const totalDistance = endY - startY;
+                    const offsetRatio = 0.5; // 使用50%位置，让两段长度一致
+                    const detourY = startY + totalDistance * offsetRatio;
+                    
+                    return { x: detourX, y: detourY };
+                }
+            } else {
+                // 从下到上 - 特殊处理，确保折线向下弯曲
+                if (startY > nodeBottom && endY < nodeTop) {
+                    const detourX1 = nodeLeft - detourDistance;
+                    const detourX2 = nodeRight + detourDistance;
+                    
+                    const distLeft = Math.abs(startX - detourX1) + Math.abs(endX - detourX1);
+                    const distRight = Math.abs(startX - detourX2) + Math.abs(endX - detourX2);
+                    
+                    const detourX = distLeft < distRight ? detourX1 : detourX2;
+                    
+                    // 对于从下到上的连线，绕行点放在节点下方，确保折线向下弯曲
+                    const detourY = nodeBottom + detourDistance;
+                    
+                    return { x: detourX, y: detourY };
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    // 计算绕行点 - 只生成两个绕行点，形成两端折线
+    function calculateDetourPoints(startX, startY, endX, endY, 
+                                 nodeX, nodeY, nodeWidth, nodeHeight) {
+        const detourPoints = [];
+        
+        // 计算节点边界
+        const nodeLeft = nodeX - nodeWidth / 2;
+        const nodeRight = nodeX + nodeWidth / 2;
+        const nodeTop = nodeY - nodeHeight / 2;
+        const nodeBottom = nodeY + nodeHeight / 2;
+        
+        // 计算连线的方向
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const isHorizontal = Math.abs(dx) > Math.abs(dy);
+        
+        // 计算绕行距离，确保有足够空间放置文字
+        const detourDistance = 50; // 增加绕行距离，为文字留出更多空间
+        
+        if (isHorizontal) {
+            // 水平连线，垂直绕行
+            if (dx > 0) {
+                // 从左到右
+                if (startX < nodeLeft && endX > nodeRight) {
+                    // 连线穿过节点，需要绕行
+                    const detourY1 = nodeTop - detourDistance; // 上方绕行
+                    const detourY2 = nodeBottom + detourDistance; // 下方绕行
+                    
+                    // 选择更近的绕行路径
+                    const distTop = Math.abs(startY - detourY1) + Math.abs(endY - detourY1);
+                    const distBottom = Math.abs(startY - detourY2) + Math.abs(endY - detourY2);
+                    
+                    if (distTop < distBottom) {
+                        // 上方绕行 - 只生成两个绕行点
+                        detourPoints.push({ x: nodeLeft - 30, y: detourY1 });
+                        detourPoints.push({ x: nodeRight + 30, y: detourY1 });
+                    } else {
+                        // 下方绕行 - 只生成两个绕行点
+                        detourPoints.push({ x: nodeLeft - 30, y: detourY2 });
+                        detourPoints.push({ x: nodeRight + 30, y: detourY2 });
+                    }
+                }
+            } else {
+                // 从右到左
+                if (startX > nodeRight && endX < nodeLeft) {
+                    // 连线穿过节点，需要绕行
+                    const detourY1 = nodeTop - detourDistance;
+                    const detourY2 = nodeBottom + detourDistance;
+                    
+                    const distTop = Math.abs(startY - detourY1) + Math.abs(endY - detourY1);
+                    const distBottom = Math.abs(startY - detourY2) + Math.abs(endY - detourY2);
+                    
+                    if (distTop < distBottom) {
+                        detourPoints.push({ x: nodeRight + 30, y: detourY1 });
+                        detourPoints.push({ x: nodeLeft - 30, y: detourY1 });
+                    } else {
+                        detourPoints.push({ x: nodeRight + 30, y: detourY2 });
+                        detourPoints.push({ x: nodeLeft - 30, y: detourY2 });
+                    }
+                }
+            }
+        } else {
+            // 垂直连线，水平绕行
+            if (dy > 0) {
+                // 从上到下
+                if (startY < nodeTop && endY > nodeBottom) {
+                    const detourX1 = nodeLeft - detourDistance;
+                    const detourX2 = nodeRight + detourDistance;
+                    
+                    const distLeft = Math.abs(startX - detourX1) + Math.abs(endX - detourX1);
+                    const distRight = Math.abs(startX - detourX2) + Math.abs(endX - detourX2);
+                    
+                    if (distLeft < distRight) {
+                        detourPoints.push({ x: detourX1, y: nodeTop - 30 });
+                        detourPoints.push({ x: detourX1, y: nodeBottom + 30 });
+                    } else {
+                        detourPoints.push({ x: detourX2, y: nodeTop - 30 });
+                        detourPoints.push({ x: detourX2, y: nodeBottom + 30 });
+                    }
+                }
+            } else {
+                // 从下到上
+                if (startY > nodeBottom && endY < nodeTop) {
+                    const detourX1 = nodeLeft - detourDistance;
+                    const detourX2 = nodeRight + detourDistance;
+                    
+                    const distLeft = Math.abs(startX - detourX1) + Math.abs(endX - detourX1);
+                    const distRight = Math.abs(startX - detourX2) + Math.abs(endX - detourX2);
+                    
+                    if (distLeft < distRight) {
+                        detourPoints.push({ x: detourX1, y: nodeBottom + 30 });
+                        detourPoints.push({ x: detourX1, y: nodeTop - 30 });
+                    } else {
+                        detourPoints.push({ x: detourX2, y: nodeBottom + 30 });
+                        detourPoints.push({ x: detourX2, y: nodeTop - 30 });
+                    }
+                }
+            }
+        }
+        
+        return detourPoints;
     }
 
     // 线段相交检测
@@ -1733,7 +2279,7 @@ ${introText}
             const midY = (source.y + target.y) / 2;
             
             // 计算标签尺寸
-            const labelWidth = Math.max(60, (link.label || '双击编辑').length * 8);
+            const labelWidth = Math.max(80, (link.label || '双击编辑').length * 12);
             const labelHeight = 20;
             
             // 检查标签是否与其他元素重叠
@@ -1778,7 +2324,7 @@ ${introText}
         
         // 检查与节点的重叠
         nodes.forEach(node => {
-            const nodeWidth = Math.max(80, (node.label || '').length * 8);
+            const nodeWidth = Math.max(100, (node.label || '').length * 12);
             const nodeHeight = 40;
             
             if (rectanglesOverlap(
@@ -1794,7 +2340,7 @@ ${introText}
             if (link.id === currentLinkId) return;
             
             if (link.labelX !== undefined && link.labelY !== undefined) {
-                const otherLabelWidth = Math.max(60, (link.label || '双击编辑').length * 8);
+                const otherLabelWidth = Math.max(80, (link.label || '双击编辑').length * 12);
                 const otherLabelHeight = 20;
                 
                 if (rectanglesOverlap(
@@ -1835,36 +2381,32 @@ ${introText}
             // 按x坐标排序
             levelNodes.sort((a, b) => a.x - b.x);
             
-            // 计算总宽度和间距
-            const totalNodeWidth = levelNodes.reduce((total, node) => {
-                const nodeWidth = Math.max(100, (node.label || '').length * 10);
-                return total + nodeWidth;
-            }, 0);
+            // 计算所有节点的实际宽度
+            const nodeWidths = levelNodes.map(node => {
+                const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+                return node.width || nodeDimensions.width;
+            });
             
-            // 动态计算间距，使同级节点更紧凑
-            const estimatedWidth = 800; // 估计的画布宽度
-            const estimatedMargin = 100;
-            const availableWidth = estimatedWidth - 2 * estimatedMargin;
-            const minSpacing = Math.max(30, Math.min(60, availableWidth / (levelNodes.length + 2))); // 更紧凑间距：30-60px
+            // 固定间距，确保节点不重叠
+            const minSpacing = 150; // 固定间距
             
+            // 计算总宽度（所有节点宽度 + 间距）
+            const totalNodeWidth = nodeWidths.reduce((sum, width) => sum + width, 0);
             const totalSpacing = (levelNodes.length - 1) * minSpacing;
-            const requiredWidth = totalNodeWidth + totalSpacing;
+            const totalWidth = totalNodeWidth + totalSpacing;
             
-            // 计算起始位置
-            let startX = levelNodes[0].x - (requiredWidth - totalNodeWidth) / 2;
+            // 计算起始位置（居中）
+            const centerX = 400; // 画布中心
+            let currentX = centerX - totalWidth / 2;
             
-            // 重新分配x坐标
-            let currentX = startX;
+            // 重新分配x坐标，确保间距均匀
             levelNodes.forEach((node, index) => {
-                const nodeWidth = Math.max(100, (node.label || '').length * 10);
+                const nodeWidth = nodeWidths[index];
+                currentX += nodeWidth / 2;
+                node.x = currentX;
+                currentX += nodeWidth / 2 + minSpacing;
                 
-                if (index === 0) {
-                    node.x = startX + nodeWidth / 2;
-                } else {
-                    currentX += minSpacing;
-                    node.x = currentX + nodeWidth / 2;
-                    currentX += nodeWidth;
-                }
+                console.log(`节点${index + 1} "${node.label}" 位置: (${node.x.toFixed(1)}, ${node.y.toFixed(1)})`);
             });
         });
     }
@@ -1990,7 +2532,7 @@ ${introText}
     }
 
     // 计算文字实际尺寸的函数
-    function calculateTextDimensions(text, fontSize = '12', fontFamily = 'Arial, sans-serif') {
+    function calculateTextDimensions(text, fontSize = '16', fontFamily = 'Arial, sans-serif') {
         // 创建临时SVG元素来测量文字尺寸
         const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         const tempText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -2015,13 +2557,13 @@ ${introText}
     }
 
     // 计算节点最佳尺寸的函数
-    function calculateNodeDimensions(nodeLabel, minWidth = 80, minHeight = 40, padding = 20) {
+    function calculateNodeDimensions(nodeLabel, minWidth = 100, minHeight = 50, padding = 30) {
         if (!nodeLabel || nodeLabel.trim() === '') {
             return { width: minWidth, height: minHeight };
         }
         
         // 计算文字尺寸
-        const textDimensions = calculateTextDimensions(nodeLabel, '12', 'Arial, sans-serif');
+        const textDimensions = calculateTextDimensions(nodeLabel, '16', 'Arial, sans-serif');
         
         // 计算节点尺寸（文字尺寸 + 内边距）
         const nodeWidth = Math.max(minWidth, textDimensions.width + padding);
@@ -2070,154 +2612,147 @@ ${introText}
             const target = nodeById.get(link.target);
             if (!source || !target) return;
             
-            // 计算连线起点和终点（矩形节点边缘）- 使用新的尺寸计算
-            const sourceDimensions = calculateNodeDimensions(source.label || '', 80, 40, 24);
-            const targetDimensions = calculateNodeDimensions(target.label || '', 80, 40, 24);
-            
-            const sourceWidth = source.width || sourceDimensions.width;
-            const sourceHeight = source.height || sourceDimensions.height;
-            const targetWidth = target.width || targetDimensions.width;
-            const targetHeight = target.height || targetDimensions.height;
-            
-            // 判断节点间的层次关系
-            const isHierarchical = isHierarchicalConnection(source, target, data.nodes, data.links);
-            
-            let startX, startY, endX, endY;
-            
-            if (isHierarchical) {
-                // 层次连接：下级节点连接到上级节点的下面
-                if (target.y > source.y) {
-                    // 目标节点在源节点下方（下级）
-                    startX = source.x;                    // 源节点水平中点
-                    startY = source.y + sourceHeight / 2; // 源节点下边缘中点
-                    endX = target.x;                      // 目标节点水平中点
-                    endY = target.y - targetHeight / 2;   // 目标节点上边缘中点
-                } else {
-                    // 目标节点在源节点上方（上级）
-                    startX = source.x;                    // 源节点水平中点
-                    startY = source.y - sourceHeight / 2; // 源节点上边缘中点
-                    endX = target.x;                      // 目标节点水平中点
-                    endY = target.y + targetHeight / 2;   // 目标节点下边缘中点
-                }
-            } else {
-                // 同级连接：连接到节点的左右
-                const dx = target.x - source.x;
-                if (dx > 0) {
-                    // 源节点在左，目标节点在右
-                    startX = source.x + sourceWidth / 2;  // 源节点右边缘中点
-                    startY = source.y;                    // 源节点垂直中点
-                    endX = target.x - targetWidth / 2;    // 目标节点左边缘中点
-                    endY = target.y;                      // 目标节点垂直中点
-                } else {
-                    // 源节点在右，目标节点在左
-                    startX = source.x - sourceWidth / 2;  // 源节点左边缘中点
-                    startY = source.y;                    // 源节点垂直中点
-                    endX = target.x + targetWidth / 2;    // 目标节点右边缘中点
-                    endY = target.y;                      // 目标节点垂直中点
-                }
-            }
+            // 计算折线路径
+            const pathData = calculatePolylinePath(link, data.nodes);
+            if (!pathData) return;
             
             // 创建带箭头的连接线
             const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             lineGroup.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
             
-            // 计算连接线中点
-            const midX = (startX + endX) / 2;
-            const midY = (startY + endY) / 2;
+            // 获取路径点
+            const waypoints = pathData.waypoints;
+            const startX = waypoints[0].x;
+            const startY = waypoints[0].y;
+            const endX = waypoints[waypoints.length - 1].x;
+            const endY = waypoints[waypoints.length - 1].y;
             
-            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            // 计算连接线中点（用于标签位置）
+            // 对于折线，使用中间点作为标签位置
+            let midX, midY;
+            if (waypoints.length === 3) {
+                // 两段折线：使用中间点作为标签位置
+                midX = waypoints[1].x;
+                midY = waypoints[1].y;
+            } else {
+                // 直线：使用起点和终点的中点
+                midX = (startX + endX) / 2;
+                midY = (startY + endY) / 2;
+            }
             
-            // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
-            const arrowLength = 8; // 缩小箭头长度
-            const arrowWidth = 6;  // 缩小箭头宽度
+            // 计算箭头位置
+            const arrowLength = 8;
+            const arrowWidth = 6;
             
-            // 计算箭头偏移距离，确保与连接线到开始节点的距离一致
-            const offsetDistance = 8; // 固定偏移距离，与连接线到开始节点的距离保持一致
-            const arrowOffset = offsetDistance / lineLength; // 箭头偏移比例
+            // 对于折线，箭头位置需要基于最后一段线段计算
+            let arrowX, arrowY;
+            if (waypoints.length > 2) {
+                // 折线：箭头位置基于最后一段线段
+                const lastSegmentStart = waypoints[waypoints.length - 2];
+                const lastSegmentEnd = waypoints[waypoints.length - 1];
+                const segmentLength = Math.sqrt(
+                    Math.pow(lastSegmentEnd.x - lastSegmentStart.x, 2) + 
+                    Math.pow(lastSegmentEnd.y - lastSegmentStart.y, 2)
+                );
+                const arrowOffset = 8 / segmentLength;
+                arrowX = lastSegmentEnd.x - (lastSegmentEnd.x - lastSegmentStart.x) * arrowOffset;
+                arrowY = lastSegmentEnd.y - (lastSegmentEnd.y - lastSegmentStart.y) * arrowOffset;
+            } else {
+                // 直线：使用原来的计算方式
+                const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                const arrowOffset = 8 / lineLength;
+                arrowX = endX - (endX - startX) * arrowOffset;
+                arrowY = endY - (endY - startY) * arrowOffset;
+            }
             
-            const arrowX = endX - (endX - startX) * arrowOffset;
-            const arrowY = endY - (endY - startY) * arrowOffset;
-            
-            // 计算文字区域的宽度，为文字留出空间
-            const textWidth = Math.max(60, (link.label || '双击编辑').length * 8);
-            const textHeight = 20;
-            
-            // 计算文字区域的边界
-            const textLeft = midX - textWidth / 2;
-            const textRight = midX + textWidth / 2;
-            const textTop = midY - textHeight / 2;
-            const textBottom = midY + textHeight / 2;
-            
-            // 创建一条完整的连接线，使用stroke-dasharray创建断开效果
+            // 创建连接线路径
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            
-            // 创建连线路径 - 统一使用直线连接
-            const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
-            line.setAttribute('d', linePath);
+            line.setAttribute('d', pathData.path);
             line.setAttribute('stroke', '#aaa');
             line.setAttribute('stroke-width', '2');
             line.setAttribute('fill', 'none');
-            line.setAttribute('stroke-linecap', 'round'); // 让线段端点更圆润
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('stroke-linejoin', 'round'); // 让折线转角更圆润
             
-            // 计算断开位置和大小
-            const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
-            // 缩小断开区域，让文字和连接线更紧凑
-            const textGap = Math.max(20, textWidth * 0.8); // 文字区域宽度，但缩小到80%
-            const gapStart = (totalLength - textGap) / 2; // 断开开始位置
-            const gapEnd = gapStart + textGap; // 断开结束位置
-            
-            // 使用stroke-dasharray创建断开效果
-            // 格式：[第一段长度, 断开长度, 第二段长度]
-            line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+            // 对于折线，在中间点周围断开用于放置文字
+            if (pathData.isPolyline && waypoints.length === 3) {
+                // 两段折线：在拐点处断开
+                const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+                const textGap = Math.max(30, textWidth * 0.6); // 调整断开间隙大小
+                
+                // 计算两段线的长度
+                const firstSegmentLength = Math.sqrt(
+                    Math.pow(waypoints[1].x - waypoints[0].x, 2) + 
+                    Math.pow(waypoints[1].y - waypoints[0].y, 2)
+                );
+                const secondSegmentLength = Math.sqrt(
+                    Math.pow(waypoints[2].x - waypoints[1].x, 2) + 
+                    Math.pow(waypoints[2].y - waypoints[1].y, 2)
+                );
+                
+                // 在拐点处对称断开
+                const halfGap = textGap / 2;
+                const firstSegmentVisible = Math.max(0, firstSegmentLength - halfGap);
+                const secondSegmentVisible = Math.max(0, secondSegmentLength - halfGap);
+                
+                // 设置断开模式：第一段可见长度 + 断开间隙 + 第二段可见长度
+                line.setAttribute('stroke-dasharray', `${firstSegmentVisible} ${textGap} ${secondSegmentVisible}`);
+            } else if (!pathData.isPolyline) {
+                // 直线：使用原来的断开效果
+                const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+                const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
+                const textGap = Math.max(20, textWidth * 0.8);
+                const gapStart = (totalLength - textGap) / 2;
+                const gapEnd = gapStart + textGap;
+                line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+            }
             
             // 创建箭头
             const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             
-            // 计算箭头方向
-            const angle = Math.atan2(endY - startY, endX - startX);
-            const arrowAngle1 = angle + Math.PI / 8; // 缩小箭头角度，让箭头更精致
-            const arrowAngle2 = angle - Math.PI / 8; // 缩小箭头角度，让箭头更精致
+            // 计算箭头方向（基于最后一段线段）
+            let angle;
+            if (waypoints.length > 2) {
+                const lastSegmentStart = waypoints[waypoints.length - 2];
+                const lastSegmentEnd = waypoints[waypoints.length - 1];
+                angle = Math.atan2(lastSegmentEnd.y - lastSegmentStart.y, lastSegmentEnd.x - lastSegmentStart.x);
+            } else {
+                angle = Math.atan2(endY - startY, endX - startX);
+            }
             
-            // 计算箭头的三个顶点
+            const arrowAngle1 = angle + Math.PI / 8;
+            const arrowAngle2 = angle - Math.PI / 8;
+            
             const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
             const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
             const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
             const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
             
-            // 创建箭头路径
             const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
             arrow.setAttribute('d', arrowPath);
             arrow.setAttribute('fill', '#aaa');
             arrow.setAttribute('stroke', '#aaa');
             arrow.setAttribute('stroke-width', '1');
             
-            // 创建连接线标签（可编辑的文字）
+            // 创建连接线标签
             const linkLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            // 计算文字在连线上的精确位置，确保文字始终跟随连线
-            const labelX = midX;
-            const labelY = midY + 4;
-            linkLabel.setAttribute('x', labelX);
-            linkLabel.setAttribute('y', labelY);
+            linkLabel.setAttribute('x', midX);
+            linkLabel.setAttribute('y', midY + 4);
             linkLabel.setAttribute('text-anchor', 'middle');
             linkLabel.setAttribute('font-size', '12');
-            linkLabel.setAttribute('fill', '#333');
             linkLabel.setAttribute('fill', '#333');
             linkLabel.setAttribute('font-weight', '500');
             linkLabel.setAttribute('pointer-events', 'all');
             linkLabel.setAttribute('cursor', 'pointer');
             linkLabel.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
             linkLabel.setAttribute('data-link-label', 'true');
-            
-            // 设置标签文字内容
             linkLabel.textContent = link.label || '双击编辑';
 
-            // 连线标签双击编辑（回到手动创建逻辑）
+            // 连线标签双击编辑
             linkLabel.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 editLinkLabel(link.id || `link-${link.source}-${link.target}`);
             });
-            
-            // 事件绑定由bindGraphEvents统一处理
             
             // 将连接线、箭头和标签添加到组中
             lineGroup.appendChild(line);
@@ -2235,7 +2770,7 @@ ${introText}
 
             // 计算节点尺寸 - 根据文字内容自动调整
             const nodeLabel = node.label || `节点${idx + 1}`;
-            const nodeDimensions = calculateNodeDimensions(nodeLabel, 80, 40, 24); // 增加内边距到24px
+            const nodeDimensions = calculateNodeDimensions(nodeLabel, 100, 50, 30); // 增加内边距到30px
             
             // 优先使用保存的尺寸，如果没有保存则使用计算出的尺寸
             const nodeWidth = node.width || nodeDimensions.width;
@@ -2273,7 +2808,7 @@ ${introText}
             text.setAttribute('y', 0); // 相对于组的中心位置，垂直居中
             text.setAttribute('text-anchor', 'middle');
             text.setAttribute('dominant-baseline', 'middle'); // 确保垂直居中
-            text.setAttribute('font-size', node.fontSize || '12'); // 优先使用保存的字体大小
+            text.setAttribute('font-size', node.fontSize || '16'); // 优先使用保存的字体大小，默认增大到16
             
             // 添加调试信息
             if (node.fontSize) {
@@ -2397,8 +2932,13 @@ ${introText}
             nodeGroup.setAttribute('transform', `translate(${newX}, ${newY})`);
         }
 
-        // 实时更新相关连接线位置
-        updateConnectedLinks(selectedNodeId);
+        // 节流更新连接线位置，避免过于频繁的计算
+        if (!window.dragUpdateTimer) {
+            window.dragUpdateTimer = setTimeout(() => {
+                updateConnectedLinks(selectedNodeId);
+                window.dragUpdateTimer = null;
+            }, 16); // 约60fps的更新频率
+        }
     }
 
     // 处理拖动结束
@@ -2424,8 +2964,26 @@ ${introText}
             }
         }
 
-        // 不需要重新绘制连线，因为拖动过程中已经实时更新了
-        // 连接线位置已经在拖动过程中通过updateConnectedLinks更新
+        // 检测并解决节点重叠
+        const draggedNode = currentGraphData.nodes.find(n => n.id === selectedNodeId);
+        if (draggedNode) {
+            // 检查拖动的节点是否与其他节点重叠（简化版本）
+            const hasOverlap = false;
+            
+            if (hasOverlap) {
+                console.log('检测到拖动后的节点重叠');
+                showMessage('检测到节点重叠', 'info');
+            }
+        }
+
+        // 清理拖拽更新定时器
+        if (window.dragUpdateTimer) {
+            clearTimeout(window.dragUpdateTimer);
+            window.dragUpdateTimer = null;
+        }
+
+        // 最终更新连接线位置，确保准确性
+        updateConnectedLinks(selectedNodeId);
 
         // 移除全局事件监听器
         document.removeEventListener('mousemove', handleDrag);
@@ -2439,7 +2997,7 @@ ${introText}
         showMessage('节点位置已更新', 'info');
     }
 
-    // 更新相关连线的位置
+    // 更新相关连线的位置，包含动态重合检测
     function updateConnectedLinks(nodeId) {
         const svg = document.querySelector('.concept-graph');
         if (!svg) return;
@@ -2449,16 +3007,183 @@ ${introText}
             link.source === nodeId || link.target === nodeId
         );
 
-        // 更新这些连线的位置
+        // 更新这些连线的位置，并检测重合
         relatedLinks.forEach(link => {
             const linkGroup = svg.querySelector(`g[data-link-id="${link.id}"]`);
             if (linkGroup) {
-                updateLinkPosition(linkGroup, link);
+                // 检测连接线是否与其他节点重合
+                const overlapCheck = hasLinkNodeOverlap(link, currentGraphData.nodes);
+                
+                // 检查连接线类型是否需要改变
+                const currentLine = linkGroup.querySelector('path:nth-child(1)');
+                const currentPath = currentLine ? currentLine.getAttribute('d') : '';
+                const isCurrentlyPolyline = currentPath.includes('L') && currentPath.split('L').length > 2;
+                const shouldBePolyline = overlapCheck.hasOverlap;
+                
+                if (shouldBePolyline !== isCurrentlyPolyline) {
+                    // 连接线类型需要改变，重新绘制
+                    redrawSingleLink(link);
+                } else {
+                    // 连接线类型不变，只更新位置
+                    updateLinkPosition(linkGroup, link);
+                }
             }
         });
         
         // 更新全局变量
         window.currentGraphData = currentGraphData;
+    }
+
+    // 重新绘制单个连接线
+    function redrawSingleLink(link) {
+        const svg = document.querySelector('.concept-graph');
+        if (!svg) return;
+
+        const linkId = link.id || `link-${link.source}-${link.target}`;
+        
+        // 移除现有的连接线
+        const existingLink = svg.querySelector(`g[data-link-id="${linkId}"]`);
+        if (existingLink) {
+            existingLink.remove();
+        }
+
+        // 重新绘制连接线
+        const sourceNode = currentGraphData.nodes.find(n => n.id === link.source);
+        const targetNode = currentGraphData.nodes.find(n => n.id === link.target);
+        
+        if (!sourceNode || !targetNode) return;
+        
+        // 计算折线路径
+        const pathData = calculatePolylinePath(link, currentGraphData.nodes);
+        if (!pathData) return;
+        
+        // 创建带箭头的连接线
+        const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        lineGroup.setAttribute('data-link-id', linkId);
+        
+        // 获取路径点
+        const waypoints = pathData.waypoints;
+        const startX = waypoints[0].x;
+        const startY = waypoints[0].y;
+        const endX = waypoints[waypoints.length - 1].x;
+        const endY = waypoints[waypoints.length - 1].y;
+
+        // 计算连接线中点（用于标签位置）
+        let midX, midY;
+        if (waypoints.length === 3) {
+            // 两段折线：使用中间点作为标签位置
+            midX = waypoints[1].x;
+            midY = waypoints[1].y;
+        } else {
+            // 直线：使用起点和终点的中点
+            midX = (startX + endX) / 2;
+            midY = (startY + endY) / 2;
+        }
+        
+        // 计算箭头位置
+        const arrowLength = 8;
+        let arrowX, arrowY;
+        if (waypoints.length > 2) {
+            // 折线：箭头位置基于最后一段线段
+            const lastSegmentStart = waypoints[waypoints.length - 2];
+            const lastSegmentEnd = waypoints[waypoints.length - 1];
+            const segmentLength = Math.sqrt(
+                Math.pow(lastSegmentEnd.x - lastSegmentStart.x, 2) + 
+                Math.pow(lastSegmentEnd.y - lastSegmentStart.y, 2)
+            );
+            const arrowOffset = 8 / segmentLength;
+            arrowX = lastSegmentEnd.x - (lastSegmentEnd.x - lastSegmentStart.x) * arrowOffset;
+            arrowY = lastSegmentEnd.y - (lastSegmentEnd.y - lastSegmentStart.y) * arrowOffset;
+        } else {
+            // 直线：使用原来的计算方式
+            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const arrowOffset = 8 / lineLength;
+            arrowX = endX - (endX - startX) * arrowOffset;
+            arrowY = endY - (endY - startY) * arrowOffset;
+        }
+        
+        // 创建连接线路径
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        line.setAttribute('d', pathData.path);
+        line.setAttribute('stroke', '#aaa');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('fill', 'none');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('stroke-linejoin', 'round');
+        
+        // 对于折线，在拐点处断开用于放置文字
+        if (pathData.isPolyline && waypoints.length === 3) {
+            // 两段折线：在拐点处断开
+            const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+            const textGap = Math.max(30, textWidth * 0.6);
+            
+            // 计算两段线的长度
+            const firstSegmentLength = Math.sqrt(
+                Math.pow(waypoints[1].x - waypoints[0].x, 2) + 
+                Math.pow(waypoints[1].y - waypoints[0].y, 2)
+            );
+            const secondSegmentLength = Math.sqrt(
+                Math.pow(waypoints[2].x - waypoints[1].x, 2) + 
+                Math.pow(waypoints[2].y - waypoints[1].y, 2)
+            );
+            
+            // 在拐点处对称断开
+            const halfGap = textGap / 2;
+            const firstSegmentVisible = Math.max(0, firstSegmentLength - halfGap);
+            const secondSegmentVisible = Math.max(0, secondSegmentLength - halfGap);
+            
+            line.setAttribute('stroke-dasharray', `${firstSegmentVisible} ${textGap} ${secondSegmentVisible}`);
+        } else if (!pathData.isPolyline) {
+            // 直线：使用原来的断开效果
+            const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+            const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
+            const textGap = Math.max(20, textWidth * 0.8);
+            const gapStart = (totalLength - textGap) / 2;
+            const gapEnd = gapStart + textGap;
+            line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+        }
+        
+        // 创建箭头
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        let angle;
+        if (waypoints.length > 2) {
+            const lastSegmentStart = waypoints[waypoints.length - 2];
+            const lastSegmentEnd = waypoints[waypoints.length - 1];
+            angle = Math.atan2(lastSegmentEnd.y - lastSegmentStart.y, lastSegmentEnd.x - lastSegmentStart.x);
+        } else {
+            angle = Math.atan2(endY - startY, endX - startX);
+        }
+
+        const arrowAngle1 = angle + Math.PI / 8;
+        const arrowAngle2 = angle - Math.PI / 8;
+
+        const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
+        const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
+        const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
+        const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
+
+        const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
+        arrow.setAttribute('d', arrowPath);
+        arrow.setAttribute('fill', '#aaa');
+        
+        // 创建标签
+        const linkLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        linkLabel.setAttribute('x', midX);
+        linkLabel.setAttribute('y', midY + 4);
+        linkLabel.setAttribute('text-anchor', 'middle');
+        linkLabel.setAttribute('font-size', '12');
+        linkLabel.setAttribute('fill', '#666');
+        linkLabel.setAttribute('pointer-events', 'none');
+        linkLabel.textContent = link.label || '双击编辑';
+        
+        // 组装元素
+        lineGroup.appendChild(line);
+        lineGroup.appendChild(arrow);
+        lineGroup.appendChild(linkLabel);
+        
+        // 添加到SVG
+        svg.appendChild(lineGroup);
     }
 
     // 更新单个连线的位置
@@ -2475,106 +3200,113 @@ ${introText}
         
         if (!line || !arrow || !linkLabel) return;
 
-        // 计算连线起点和终点（矩形节点边缘）
-        const sourceWidth = sourceNode.width || Math.max(80, (sourceNode.label || '').length * 8);
-        const sourceHeight = sourceNode.height || 40;
-        const targetWidth = targetNode.width || Math.max(80, (targetNode.label || '').length * 8);
-        const targetHeight = targetNode.height || 40;
+        // 重新计算折线路径
+        const pathData = calculatePolylinePath(link, currentGraphData.nodes);
+        if (!pathData) return;
 
-        // 判断节点间的层次关系
-        const isHierarchical = isHierarchicalConnection(sourceNode, targetNode, currentGraphData.nodes, currentGraphData.links);
-        
-        let startX, startY, endX, endY;
-        
-        if (isHierarchical) {
-            // 层次连接：下级节点连接到上级节点的下面
-            if (targetNode.y > sourceNode.y) {
-                // 目标节点在源节点下方（下级）
-                startX = sourceNode.x;                    // 源节点水平中点
-                startY = sourceNode.y + sourceHeight / 2; // 源节点下边缘中点
-                endX = targetNode.x;                      // 目标节点水平中点
-                endY = targetNode.y - targetHeight / 2;   // 目标节点上边缘中点
-            } else {
-                // 目标节点在源节点上方（上级）
-                startX = sourceNode.x;                    // 源节点水平中点
-                startY = sourceNode.y - sourceHeight / 2; // 源节点上边缘中点
-                endX = targetNode.x;                      // 目标节点水平中点
-                endY = targetNode.y + targetHeight / 2;   // 目标节点下边缘中点
-            }
+        // 获取路径点
+        const waypoints = pathData.waypoints;
+        const startX = waypoints[0].x;
+        const startY = waypoints[0].y;
+        const endX = waypoints[waypoints.length - 1].x;
+        const endY = waypoints[waypoints.length - 1].y;
+
+        // 计算连接线中点（用于标签位置）
+        // 对于折线，使用中间点作为标签位置
+        let midX, midY;
+        if (waypoints.length === 3) {
+            // 两段折线：使用中间点作为标签位置
+            midX = waypoints[1].x;
+            midY = waypoints[1].y;
         } else {
-            // 同级连接：连接到节点的左右
-            const dx = targetNode.x - sourceNode.x;
-            if (dx > 0) {
-                // 源节点在左，目标节点在右
-                startX = sourceNode.x + sourceWidth / 2;  // 源节点右边缘中点
-                startY = sourceNode.y;                    // 源节点垂直中点
-                endX = targetNode.x - targetWidth / 2;    // 目标节点左边缘中点
-                endY = targetNode.y;                      // 目标节点垂直中点
-            } else {
-                // 源节点在右，目标节点在左
-                startX = sourceNode.x - sourceWidth / 2;  // 源节点左边缘中点
-                startY = sourceNode.y;                    // 源节点垂直中点
-                endX = targetNode.x + targetWidth / 2;    // 目标节点右边缘中点
-                endY = targetNode.y;                      // 目标节点垂直中点
-            }
+            // 直线：使用起点和终点的中点
+            midX = (startX + endX) / 2;
+            midY = (startY + endY) / 2;
         }
 
-        // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
-        const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-        const arrowLength = 8; // 缩小箭头长度
-        const arrowWidth = 6;  // 缩小箭头宽度
+        // 计算箭头位置
+        const arrowLength = 8;
+        const arrowWidth = 6;
         
-        // 计算箭头偏移距离，确保与连接线到开始节点的距离一致
-        const offsetDistance = 8; // 固定偏移距离，与连接线到开始节点的距离保持一致
-        const arrowOffset = offsetDistance / lineLength; // 箭头偏移比例
-        
-        const arrowX = endX - (endX - startX) * arrowOffset;
-        const arrowY = endY - (endY - startY) * arrowOffset;
-        
-        // 计算连接线中点
-        const midX = (startX + endX) / 2;
-        const midY = (startY + endY) / 2;
-        
-        // 计算文字区域的宽度，为文字留出空间
-        const textWidth = Math.max(60, (link.label || '双击编辑').length * 8);
-        const textHeight = 20;
-        
-        // 计算文字区域的边界
-        const textLeft = midX - textWidth / 2;
-        const textRight = midX + textWidth / 2;
-        
-        // 更新连接线路径和断开效果
-        const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
-        line.setAttribute('d', linePath);
-        
-        // 重新计算断开位置和大小
-        const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
-        // 缩小断开区域，让文字和连接线更紧凑
-        const textGap = Math.max(20, textWidth * 0.8); // 文字区域宽度，但缩小到80%
-        const gapStart = (totalLength - textGap) / 2; // 断开开始位置
-        const gapEnd = gapStart + textGap; // 断开结束位置
-        
-        // 更新stroke-dasharray创建断开效果
-        line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
-        
-        // 更新标签位置，确保文字始终跟随连线
-        const labelX = midX;
-        const labelY = midY + 4;
-        linkLabel.setAttribute('x', labelX);
-        linkLabel.setAttribute('y', labelY);
-        
+        let arrowX, arrowY;
+        if (waypoints.length > 2) {
+            // 折线：箭头位置基于最后一段线段
+            const lastSegmentStart = waypoints[waypoints.length - 2];
+            const lastSegmentEnd = waypoints[waypoints.length - 1];
+            const segmentLength = Math.sqrt(
+                Math.pow(lastSegmentEnd.x - lastSegmentStart.x, 2) + 
+                Math.pow(lastSegmentEnd.y - lastSegmentStart.y, 2)
+            );
+            const arrowOffset = 8 / segmentLength;
+            arrowX = lastSegmentEnd.x - (lastSegmentEnd.x - lastSegmentStart.x) * arrowOffset;
+            arrowY = lastSegmentEnd.y - (lastSegmentEnd.y - lastSegmentStart.y) * arrowOffset;
+        } else {
+            // 直线：使用原来的计算方式
+            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const arrowOffset = 8 / lineLength;
+            arrowX = endX - (endX - startX) * arrowOffset;
+            arrowY = endY - (endY - startY) * arrowOffset;
+        }
+
+        // 更新连接线路径
+        line.setAttribute('d', pathData.path);
+        line.setAttribute('stroke-linejoin', 'round'); // 让折线转角更圆润
+
+        // 对于折线，在拐点处断开用于放置文字
+        if (pathData.isPolyline && waypoints.length === 3) {
+            // 两段折线：在拐点处断开
+            const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+            const textGap = Math.max(30, textWidth * 0.6); // 调整断开间隙大小
+            
+            // 计算两段线的长度
+            const firstSegmentLength = Math.sqrt(
+                Math.pow(waypoints[1].x - waypoints[0].x, 2) + 
+                Math.pow(waypoints[1].y - waypoints[0].y, 2)
+            );
+            const secondSegmentLength = Math.sqrt(
+                Math.pow(waypoints[2].x - waypoints[1].x, 2) + 
+                Math.pow(waypoints[2].y - waypoints[1].y, 2)
+            );
+            
+            // 在拐点处对称断开
+            const halfGap = textGap / 2;
+            const firstSegmentVisible = Math.max(0, firstSegmentLength - halfGap);
+            const secondSegmentVisible = Math.max(0, secondSegmentLength - halfGap);
+            
+            // 设置断开模式：第一段可见长度 + 断开间隙 + 第二段可见长度
+            line.setAttribute('stroke-dasharray', `${firstSegmentVisible} ${textGap} ${secondSegmentVisible}`);
+        } else if (!pathData.isPolyline) {
+            // 直线：使用原来的断开效果
+            const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+            const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
+            const textGap = Math.max(20, textWidth * 0.8);
+            const gapStart = (totalLength - textGap) / 2;
+            const gapEnd = gapStart + textGap;
+            line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+        }
+
+        // 更新标签位置
+        linkLabel.setAttribute('x', midX);
+        linkLabel.setAttribute('y', midY + 4);
+
         // 更新箭头位置
-        const angle = Math.atan2(endY - startY, endX - startX);
+        let angle;
+        if (waypoints.length > 2) {
+            const lastSegmentStart = waypoints[waypoints.length - 2];
+            const lastSegmentEnd = waypoints[waypoints.length - 1];
+            angle = Math.atan2(lastSegmentEnd.y - lastSegmentStart.y, lastSegmentEnd.x - lastSegmentStart.x);
+        } else {
+            angle = Math.atan2(endY - startY, endX - startX);
+        }
+
         const arrowAngle1 = angle + Math.PI / 8;
         const arrowAngle2 = angle - Math.PI / 8;
-        
-        // 计算箭头的三个顶点
+
         const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
         const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
         const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
         const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
-        
-        // 更新箭头路径
+
         const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
         arrow.setAttribute('d', arrowPath);
     }
@@ -2595,127 +3327,131 @@ ${introText}
             
             if (!sourceNode || !targetNode) return;
             
-            // 计算连线起点和终点（矩形节点边缘）
-            const sourceWidth = Math.max(80, (sourceNode.label || '').length * 8);
-            const sourceHeight = 40;
-            const targetWidth = Math.max(80, (targetNode.label || '').length * 8);
-            const targetHeight = 40;
-            
-            // 判断节点间的层次关系
-            const isHierarchical = isHierarchicalConnection(sourceNode, targetNode, currentGraphData.nodes, currentGraphData.links);
-            
-            let startX, startY, endX, endY;
-            
-            if (isHierarchical) {
-                // 层次连接：下级节点连接到上级节点的下面
-                if (targetNode.y > sourceNode.y) {
-                    // 目标节点在源节点下方（下级）
-                    startX = sourceNode.x;                    // 源节点水平中点
-                    startY = sourceNode.y + sourceHeight / 2; // 源节点下边缘中点
-                    endX = targetNode.x;                      // 目标节点水平中点
-                    endY = targetNode.y - targetHeight / 2;   // 目标节点上边缘中点
-                } else {
-                    // 目标节点在源节点上方（上级）
-                    startX = sourceNode.x;                    // 源节点水平中点
-                    startY = sourceNode.y - sourceHeight / 2; // 源节点上边缘中点
-                    endX = targetNode.x;                      // 目标节点水平中点
-                    endY = targetNode.y + targetHeight / 2;   // 目标节点下边缘中点
-                }
-            } else {
-                // 同级连接：连接到节点的左右
-                const dx = targetNode.x - sourceNode.x;
-                if (dx > 0) {
-                    // 源节点在左，目标节点在右
-                    startX = sourceNode.x + sourceWidth / 2;  // 源节点右边缘中点
-                    startY = sourceNode.y;                    // 源节点垂直中点
-                    endX = targetNode.x - targetWidth / 2;    // 目标节点左边缘中点
-                    endY = targetNode.y;                      // 目标节点垂直中点
-                } else {
-                    // 源节点在右，目标节点在左
-                    startX = sourceNode.x - sourceWidth / 2;  // 源节点左边缘中点
-                    startY = sourceNode.y;                    // 源节点垂直中点
-                    endX = targetNode.x + targetWidth / 2;    // 目标节点右边缘中点
-                    endY = targetNode.y;                      // 目标节点垂直中点
-                }
-            }
+            // 计算折线路径
+            const pathData = calculatePolylinePath(link, currentGraphData.nodes);
+            if (!pathData) return;
             
             // 创建带箭头的连接线
             const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             lineGroup.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
             
-            // 计算连接线中点
-            const midX = (startX + endX) / 2;
-            const midY = (startY + endY) / 2;
+            // 获取路径点
+            const waypoints = pathData.waypoints;
+            const startX = waypoints[0].x;
+            const startY = waypoints[0].y;
+            const endX = waypoints[waypoints.length - 1].x;
+            const endY = waypoints[waypoints.length - 1].y;
             
-            // 计算文字区域的宽度，为文字留出空间
-            const textWidth = Math.max(60, (link.label || '双击编辑').length * 8);
-            const textHeight = 20;
+            // 计算连接线中点（用于标签位置）
+            // 对于折线，使用中间点作为标签位置
+            let midX, midY;
+            if (waypoints.length === 3) {
+                // 两段折线：使用中间点作为标签位置
+                midX = waypoints[1].x;
+                midY = waypoints[1].y;
+            } else {
+                // 直线：使用起点和终点的中点
+                midX = (startX + endX) / 2;
+                midY = (startY + endY) / 2;
+            }
             
-            // 计算文字区域的边界
-            const textLeft = midX - textWidth / 2;
-            const textRight = midX + textWidth / 2;
+            // 计算箭头位置
+            const arrowLength = 8;
+            const arrowWidth = 6;
             
-            // 计算箭头位置（确保箭头到结束节点的距离与连接线到开始节点的距离一致）
-            const arrowLength = 8; // 缩小箭头长度
-            const arrowWidth = 6;  // 缩小箭头宽度
+            let arrowX, arrowY;
+            if (waypoints.length > 2) {
+                // 折线：箭头位置基于最后一段线段
+                const lastSegmentStart = waypoints[waypoints.length - 2];
+                const lastSegmentEnd = waypoints[waypoints.length - 1];
+                const segmentLength = Math.sqrt(
+                    Math.pow(lastSegmentEnd.x - lastSegmentStart.x, 2) + 
+                    Math.pow(lastSegmentEnd.y - lastSegmentStart.y, 2)
+                );
+                const arrowOffset = 8 / segmentLength;
+                arrowX = lastSegmentEnd.x - (lastSegmentEnd.x - lastSegmentStart.x) * arrowOffset;
+                arrowY = lastSegmentEnd.y - (lastSegmentEnd.y - lastSegmentStart.y) * arrowOffset;
+            } else {
+                // 直线：使用原来的计算方式
+                const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                const arrowOffset = 8 / lineLength;
+                arrowX = endX - (endX - startX) * arrowOffset;
+                arrowY = endY - (endY - startY) * arrowOffset;
+            }
             
-            const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
-            const offsetDistance = 8; // 固定偏移距离，与连接线到开始节点的距离保持一致
-            const arrowOffset = offsetDistance / lineLength; // 箭头偏移比例
-            
-            const arrowX = endX - (endX - startX) * arrowOffset;
-            const arrowY = endY - (endY - startY) * arrowOffset;
-            
-            // 创建一条完整的连接线，使用stroke-dasharray创建断开效果
+            // 创建连接线路径
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            
-            // 创建连线路径 - 统一使用直线连接
-            const linePath = `M ${startX} ${startY} L ${arrowX} ${arrowY}`;
-            line.setAttribute('d', linePath);
+            line.setAttribute('d', pathData.path);
             line.setAttribute('stroke', '#aaa');
             line.setAttribute('stroke-width', '2');
             line.setAttribute('fill', 'none');
-            line.setAttribute('stroke-linecap', 'round'); // 让线段端点更圆润
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('stroke-linejoin', 'round'); // 让折线转角更圆润
             
-            // 计算断开位置和大小
-            const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
-            // 缩小断开区域，让文字和连接线更紧凑
-            const textGap = Math.max(20, textWidth * 0.8); // 文字区域宽度，但缩小到80%
-            const gapStart = (totalLength - textGap) / 2; // 断开开始位置
-            const gapEnd = gapStart + textGap; // 断开结束位置
-            
-            // 使用stroke-dasharray创建断开效果
-            // 格式：[第一段长度, 断开长度, 第二段长度]
-            line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+            // 对于折线，在中间点周围断开用于放置文字
+            if (pathData.isPolyline && waypoints.length === 3) {
+                // 两段折线：在拐点处断开
+                const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+                const textGap = Math.max(30, textWidth * 0.6); // 调整断开间隙大小
+                
+                // 计算两段线的长度
+                const firstSegmentLength = Math.sqrt(
+                    Math.pow(waypoints[1].x - waypoints[0].x, 2) + 
+                    Math.pow(waypoints[1].y - waypoints[0].y, 2)
+                );
+                const secondSegmentLength = Math.sqrt(
+                    Math.pow(waypoints[2].x - waypoints[1].x, 2) + 
+                    Math.pow(waypoints[2].y - waypoints[1].y, 2)
+                );
+                
+                // 在拐点处对称断开
+                const halfGap = textGap / 2;
+                const firstSegmentVisible = Math.max(0, firstSegmentLength - halfGap);
+                const secondSegmentVisible = Math.max(0, secondSegmentLength - halfGap);
+                
+                // 设置断开模式：第一段可见长度 + 断开间隙 + 第二段可见长度
+                line.setAttribute('stroke-dasharray', `${firstSegmentVisible} ${textGap} ${secondSegmentVisible}`);
+            } else if (!pathData.isPolyline) {
+                // 直线：使用原来的断开效果
+                const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
+                const totalLength = Math.sqrt(Math.pow(arrowX - startX, 2) + Math.pow(arrowY - startY, 2));
+                const textGap = Math.max(20, textWidth * 0.8);
+                const gapStart = (totalLength - textGap) / 2;
+                const gapEnd = gapStart + textGap;
+                line.setAttribute('stroke-dasharray', `${gapStart} ${textGap} ${totalLength - gapEnd}`);
+            }
             
             // 创建箭头
             const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             
-            // 计算箭头方向
-            const angle = Math.atan2(endY - startY, endX - startX);
-            const arrowAngle1 = angle + Math.PI / 8; // 缩小箭头角度，让箭头更精致
-            const arrowAngle2 = angle - Math.PI / 8; // 缩小箭头角度，让箭头更精致
+            // 计算箭头方向（基于最后一段线段）
+            let angle;
+            if (waypoints.length > 2) {
+                const lastSegmentStart = waypoints[waypoints.length - 2];
+                const lastSegmentEnd = waypoints[waypoints.length - 1];
+                angle = Math.atan2(lastSegmentEnd.y - lastSegmentStart.y, lastSegmentEnd.x - lastSegmentStart.x);
+            } else {
+                angle = Math.atan2(endY - startY, endX - startX);
+            }
             
-            // 计算箭头的三个顶点
+            const arrowAngle1 = angle + Math.PI / 8;
+            const arrowAngle2 = angle - Math.PI / 8;
+            
             const arrowPoint1X = arrowX - arrowLength * Math.cos(arrowAngle1);
             const arrowPoint1Y = arrowY - arrowLength * Math.sin(arrowAngle1);
             const arrowPoint2X = arrowX - arrowLength * Math.cos(arrowAngle2);
             const arrowPoint2Y = arrowY - arrowLength * Math.sin(arrowAngle2);
             
-            // 创建箭头路径
             const arrowPath = `M ${arrowX} ${arrowY} L ${arrowPoint1X} ${arrowPoint1Y} L ${arrowPoint2X} ${arrowPoint2Y} Z`;
             arrow.setAttribute('d', arrowPath);
             arrow.setAttribute('fill', '#aaa');
             arrow.setAttribute('stroke', '#aaa');
             arrow.setAttribute('stroke-width', '1');
             
-            // 创建连接线标签（可编辑的文字）
+            // 创建连接线标签
             const linkLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            // 计算文字在连线上的精确位置，确保文字始终跟随连线
-            const labelX = midX;
-            const labelY = midY + 4;
-            linkLabel.setAttribute('x', labelX);
-            linkLabel.setAttribute('y', labelY);
+            linkLabel.setAttribute('x', midX);
+            linkLabel.setAttribute('y', midY + 4);
             linkLabel.setAttribute('text-anchor', 'middle');
             linkLabel.setAttribute('font-size', '12');
             linkLabel.setAttribute('fill', '#333');
@@ -2724,17 +3460,13 @@ ${introText}
             linkLabel.setAttribute('cursor', 'pointer');
             linkLabel.setAttribute('data-link-id', link.id || `link-${link.source}-${link.target}`);
             linkLabel.setAttribute('data-link-label', 'true');
-            
-            // 设置标签文字内容
             linkLabel.textContent = link.label || '双击编辑';
 
-            // 连线标签双击编辑（回到手动创建逻辑）
+            // 连线标签双击编辑
             linkLabel.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 editLinkLabel(link.id || `link-${link.source}-${link.target}`);
             });
-            
-            // 事件绑定由bindGraphEvents统一处理
             
             // 将连接线、箭头和标签添加到组中
             lineGroup.appendChild(line);
@@ -2877,7 +3609,7 @@ ${introText}
         const svgRect = svg.getBoundingClientRect();
 
         // 计算节点尺寸
-        const nodeWidth = Math.max(80, (node.label || '').length * 8);
+        const nodeWidth = Math.max(100, (node.label || '').length * 12);
         const nodeHeight = 40;
 
         // 计算输入框在页面中的绝对位置
@@ -2937,13 +3669,22 @@ ${introText}
             if (newLabel && newLabel !== node.label) {
                 node.label = newLabel;
                 
+                // 检测并解决可能的节点重叠（简化版本）
+                const hasOverlap = false;
+                
+                if (hasOverlap) {
+                    console.log('检测到节点编辑后的重叠');
+                    showMessage('节点文字已更新，检测到重叠', 'success');
+                } else {
+                    showMessage('节点文字已更新', 'success');
+                }
+                
                 // 更新全局变量
                 window.currentGraphData = currentGraphData;
                 
                 drawGraph(currentGraphData);
                 updateStatusBar(currentGraphData);
                 saveToHistory(currentGraphData);
-                showMessage('节点文字已更新', 'success');
             }
             document.body.removeChild(input);
         };
@@ -3037,7 +3778,7 @@ ${introText}
         const nodeData = currentGraphData.nodes.find(n => n.id === nodeId);
         const nodeWidth = nodeData?.width || (() => {
             const actualRect = nodeGroup.querySelector('rect');
-            return actualRect ? parseFloat(actualRect.getAttribute('width')) : Math.max(80, (nodeData?.label || '').length * 8);
+            return actualRect ? parseFloat(actualRect.getAttribute('width')) : Math.max(100, (nodeData?.label || '').length * 12);
         })();
         const nodeHeight = nodeData?.height || (() => {
             const actualRect = nodeGroup.querySelector('rect');
@@ -3139,7 +3880,7 @@ ${introText}
             
             const node = currentGraphData.nodes.find(n => n.id === nodeId);
             if (node) {
-                window.originalWidth = Math.max(80, (node.label || '').length * 8);
+                window.originalWidth = Math.max(100, (node.label || '').length * 12);
                 window.originalHeight = 40;
             }
             
@@ -3367,28 +4108,9 @@ ${introText}
         const newNodeId = (currentGraphData.nodes.length + 1).toString();
         console.log('新节点ID:', newNodeId);
         
-        // 计算新节点位置，避免重叠
-        let x, y;
-        let attempts = 0;
-        const maxAttempts = 50;
-        
-        do {
-            x = Math.random() * 600 + 100;
-            y = Math.random() * 260 + 80;
-            attempts++;
-            
-            // 检查是否与现有节点重叠
-            const overlap = currentGraphData.nodes.some(existingNode => {
-                const distance = Math.sqrt(
-                    Math.pow(x - existingNode.x, 2) + 
-                    Math.pow(y - existingNode.y, 2)
-                );
-                // 考虑矩形节点的尺寸（宽度约80，高度40）
-                return distance < 80;
-            });
-            
-            if (!overlap || attempts >= maxAttempts) break;
-        } while (attempts < maxAttempts);
+        // 计算新节点位置
+        const x = Math.random() * 600 + 100;
+        const y = Math.random() * 260 + 80;
 
         const newNode = {
             id: newNodeId,
@@ -3402,6 +4124,8 @@ ${introText}
         
         currentGraphData.nodes.push(newNode);
         console.log('节点已添加到数据中，当前节点数量:', currentGraphData.nodes.length);
+        
+
         
         // 更新全局变量
         window.currentGraphData = currentGraphData;
@@ -3992,7 +4716,7 @@ ${introText}
         
         // 统一的边界间距 - 与assignCoordinates函数中保持一致
         const margin = 150; // 左右边界间距，确保不贴边
-        const topMargin = 30; // 顶部间距，保持在顶部位置
+        const topMargin = 80; // 增加顶部间距，让焦点问题框下移，与上边界距离更大
         
         // 计算焦点问题框的尺寸和位置
         const focusBoxWidth = Math.max(400, viewBoxWidth - 2 * margin); // 确保最小宽度
@@ -4022,7 +4746,7 @@ ${introText}
         focusText.setAttribute('y', focusBoxY + focusBoxHeight / 2); // 垂直居中
         focusText.setAttribute('text-anchor', 'middle');
         focusText.setAttribute('dominant-baseline', 'middle');
-        focusText.setAttribute('font-size', '16');
+        focusText.setAttribute('font-size', '28');
         focusText.setAttribute('font-weight', '600');
         focusText.setAttribute('fill', '#2c3e50');
         focusText.textContent = window.focusQuestion;
@@ -4354,7 +5078,7 @@ ${introText}
         // 设置起点（从源节点的边缘开始）
         const sourceNode = currentGraphData.nodes.find(n => n.id === sourceNodeId);
         if (sourceNode) {
-            const nodeWidth = sourceNode.width || Math.max(80, (sourceNode.label || '').length * 8);
+            const nodeWidth = sourceNode.width || Math.max(100, (sourceNode.label || '').length * 12);
             const nodeHeight = sourceNode.height || 40;
             
             let startX, startY;
@@ -4460,27 +5184,27 @@ ${introText}
         exitConnectionMode();
     }
 
-    // 力导向布局专用函数
-    function applyForceDirectedLayoutOnly(graphData) {
-        console.log('应用力导向布局...');
-        
-        if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
-            return graphData;
-        }
+            // 力导向布局专用函数
+        function applyForceDirectedLayoutOnly(graphData) {
+            console.log('应用力导向布局...');
+            
+            if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+                return graphData;
+            }
 
-        const nodes = [...graphData.nodes];
-        const links = [...graphData.links];
-        
-        // 动态计算画布尺寸，根据节点数量和内容长度
-        const maxNodeWidth = Math.max(...nodes.map(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
-            return node.width || nodeDimensions.width;
-        }));
+            const nodes = [...graphData.nodes];
+            const links = [...graphData.links];
+            
+            // 动态计算画布尺寸，根据节点数量和内容长度
+            const maxNodeWidth = Math.max(...nodes.map(node => {
+                const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+                return node.width || nodeDimensions.width;
+            }));
         const maxNodesInLevel = Math.max(...Array.from(assignLayers(nodes, links).values()).map(level => level.length));
         
         // 计算合适的画布尺寸
         const width = Math.max(600, Math.min(1200, maxNodesInLevel * (maxNodeWidth + 80) + 200)); // 600-1200px
-        const height = Math.max(400, Math.min(800, nodes.length * 60 + 200)); // 400-800px
+        const height = Math.max(500, Math.min(1000, nodes.length * 80 + 300)); // 增加高度范围，为更大的垂直间距提供空间
         
         // 力导向布局参数 - 根据画布尺寸动态调整
         const nodeSpacing = Math.max(60, Math.min(100, width / (maxNodesInLevel + 2))); // 60-100px
@@ -4501,27 +5225,27 @@ ${introText}
         return { ...graphData, nodes, links };
     }
 
-    // Sugiyama层次布局算法
-    function applyHierarchicalLayout(graphData) {
-        console.log('应用Sugiyama层次布局算法...');
-        
-        if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
-            return graphData;
-        }
+            // Sugiyama层次布局算法
+        function applyHierarchicalLayout(graphData) {
+            console.log('应用Sugiyama层次布局算法...');
+            
+            if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+                return graphData;
+            }
 
-        const nodes = [...graphData.nodes];
-        const links = [...graphData.links];
-        
-        // 动态计算画布尺寸，根据节点数量和内容长度
-        const maxNodeWidth = Math.max(...nodes.map(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
-            return node.width || nodeDimensions.width;
-        }));
+            const nodes = [...graphData.nodes];
+            const links = [...graphData.links];
+            
+            // 动态计算画布尺寸，根据节点数量和内容长度
+            const maxNodeWidth = Math.max(...nodes.map(node => {
+                const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+                return node.width || nodeDimensions.width;
+            }));
         const maxNodesInLevel = Math.max(...Array.from(assignLayers(nodes, links).values()).map(level => level.length));
         
         // 计算合适的画布尺寸
         const width = Math.max(600, Math.min(1200, maxNodesInLevel * (maxNodeWidth + 80) + 200)); // 600-1200px
-        const height = Math.max(400, Math.min(800, nodes.length * 60 + 200)); // 400-800px
+        const height = Math.max(500, Math.min(1000, nodes.length * 80 + 300)); // 增加高度范围，为更大的垂直间距提供空间
         
         // 步骤1: 层次分配
         const levels = assignLayers(nodes, links);
@@ -4539,6 +5263,83 @@ ${introText}
         adjustViewBox(nodes, width, height);
         
         return { ...graphData, nodes, links };
+    }
+
+    // 应用每层节点数量限制（最多4个节点）
+    function applyLayerNodeLimit(levels) {
+        console.log('应用每层节点数量限制（最多4个节点）...');
+        
+        const maxNodesPerLayer = 4;
+        const newLevels = new Map();
+        let currentLevelIndex = 0;
+        
+        levels.forEach((levelNodes, originalLevel) => {
+            console.log(`处理第${originalLevel}层，节点数量: ${levelNodes.length}`);
+            
+            if (levelNodes.length <= maxNodesPerLayer) {
+                // 如果节点数量不超过限制，直接使用
+                newLevels.set(currentLevelIndex, levelNodes);
+                console.log(`第${originalLevel}层节点数量(${levelNodes.length})未超限，分配到第${currentLevelIndex}层`);
+                currentLevelIndex++;
+            } else {
+                // 如果节点数量超过限制，需要分流到多个层级
+                console.log(`第${originalLevel}层节点数量(${levelNodes.length})超限，开始分流...`);
+                
+                // 对节点进行智能分组，优先保持相关性
+                const nodeGroups = intelligentNodeGrouping(levelNodes, maxNodesPerLayer);
+                
+                // 将分组后的节点分配到不同层级
+                nodeGroups.forEach((group, groupIndex) => {
+                    newLevels.set(currentLevelIndex + groupIndex, group);
+                    console.log(`分组${groupIndex + 1}(${group.length}个节点)分配到第${currentLevelIndex + groupIndex}层:`, group.map(n => n.label));
+                });
+                
+                currentLevelIndex += nodeGroups.length;
+            }
+        });
+        
+        console.log(`层级限制应用完成，原${levels.size}层扩展为${newLevels.size}层`);
+        return newLevels;
+    }
+    
+    // 智能节点分组算法 - 保持相关节点在同一层
+    function intelligentNodeGrouping(nodes, maxNodesPerGroup) {
+        console.log(`开始智能分组，节点数量: ${nodes.length}，每组最大: ${maxNodesPerGroup}`);
+        
+        if (nodes.length <= maxNodesPerGroup) {
+            return [nodes];
+        }
+        
+        const groups = [];
+        const remainingNodes = [...nodes];
+        
+        // 优先策略1：按节点重要性分组（如果有importance属性）
+        remainingNodes.sort((a, b) => {
+            const importanceA = a.importance || 5;
+            const importanceB = b.importance || 5;
+            // 先按重要性排序，重要性相同的按标签长度排序
+            if (importanceA !== importanceB) {
+                return importanceB - importanceA; // 重要性高的在前
+            }
+            const lengthA = (a.label || '').length;
+            const lengthB = (b.label || '').length;
+            return lengthA - lengthB; // 标签短的在前
+        });
+        
+        while (remainingNodes.length > 0) {
+            const currentGroup = [];
+            
+            // 每组取最多maxNodesPerGroup个节点
+            for (let i = 0; i < maxNodesPerGroup && remainingNodes.length > 0; i++) {
+                currentGroup.push(remainingNodes.shift());
+            }
+            
+            groups.push(currentGroup);
+            console.log(`创建分组${groups.length}，包含${currentGroup.length}个节点:`, currentGroup.map(n => n.label));
+        }
+        
+        console.log(`智能分组完成，共创建${groups.length}个分组`);
+        return groups;
     }
 
     // Sugiyama算法步骤1: 层次分配 - 优化确保第一级关键词节点在最上方
@@ -4645,8 +5446,11 @@ ${introText}
             levels.set(currentLevel, isolatedNodes);
         }
         
-        console.log(`层次分配完成，共${levels.size}层，第一级节点:`, firstLevelNodes.map(n => n.label));
-        return levels;
+        // 新增：应用每层节点数量限制（最多4个节点）
+        const limitedLevels = applyLayerNodeLimit(levels);
+        
+        console.log(`层次分配完成，共${limitedLevels.size}层，第一级节点:`, firstLevelNodes.map(n => n.label));
+        return limitedLevels;
     }
 
     // Sugiyama算法步骤2: 节点排序（减少交叉）
@@ -4798,94 +5602,242 @@ ${introText}
     
     // Sugiyama算法步骤3: 坐标分配 - 优化确保所有节点都在可视区域内，并将第一级节点放在焦点问题下方
     function assignCoordinates(nodes, orderedLevels, width, height) {
-        console.log('步骤3: 坐标分配...');
+        console.log('步骤3: 坐标分配 - 以关键词节点为轴的对称布局...');
         
         // 统一的边界间距，确保所有节点都在可视区域内
-        const margin = 150; // 左右边界间距，确保不贴边
-        const topMargin = 90; // 减小顶部边界间距，让第一级节点更接近焦点问题
-        const bottomMargin = 150; // 底部边界间距
+        const margin = 200; // 增加左右边界间距，确保对称性
+        const topMargin = 150; // 增加顶部边界间距，让整个概念图下移，与焦点问题距离更远
+        const bottomMargin = 100; // 底部边界间距
         
         // 计算可用的布局区域
         const availableWidth = width - 2 * margin;
         const availableHeight = height - topMargin - bottomMargin;
         
-        // 计算层次间距，确保所有层次都在可用区域内
-        const levelHeight = Math.max(100, Math.min(140, availableHeight / (orderedLevels.size + 1)));
+        // 计算层次间距，确保所有层次都在可用区域内，增加垂直间距
+        const levelHeight = Math.max(150, Math.min(200, availableHeight / (orderedLevels.size + 1)));
+        
+        // 固定对称轴位置为画布中心
+        const symmetryAxisX = width / 2;
+        console.log('对称轴位置（画布中心）:', symmetryAxisX);
+        
+        // 获取第一级关键词节点
+        let keywordNode = null;
+        if (orderedLevels.has(0) && orderedLevels.get(0).length > 0) {
+            keywordNode = orderedLevels.get(0)[0];
+            console.log('找到关键词节点:', keywordNode.label);
+        }
+        
+        // 确保第一级关键词节点严格居中
+        if (keywordNode) {
+            keywordNode.x = symmetryAxisX;
+            keywordNode.y = topMargin + 100; // 增加距离，让第一级节点下移，与焦点问题距离更远
+            console.log(`第一级关键词节点"${keywordNode.label}"已强制居中放置在 (${symmetryAxisX}, ${topMargin + 100})`);
+        }
         
         orderedLevels.forEach((levelNodes, level) => {
             // 计算当前层次的Y坐标，确保在可用区域内
-            // 修改：第一级节点放在焦点问题下方(topMargin+80)，其他各级依次向下摆放
             const y = level === 0 
-                ? topMargin + 80 // 第一级节点直接放在焦点问题下方
-                : topMargin + 80 + level * levelHeight; // 其他级节点依次向下摆放
+                ? topMargin + 100 // 第一级节点放在焦点问题正下方，增加距离让整个概念图下移
+                : topMargin + 100 + level * levelHeight; // 其他级节点依次向下摆放，使用更大的间距
             
-            if (levelNodes.length === 1) {
-                // 单节点水平居中
-                levelNodes[0].x = width / 2;
-                levelNodes[0].y = y;
+            if (level === 0) {
+                // 第一级节点强制居中放置
+                if (levelNodes.length === 1) {
+                    // 单个第一级节点严格居中
+                    levelNodes[0].x = symmetryAxisX;
+                    levelNodes[0].y = y;
+                    console.log(`第一级关键词节点"${levelNodes[0].label}"已居中放置在 (${symmetryAxisX}, ${y})`);
+                } else {
+                    // 多个第一级节点以中心对称分布
+                    const symmetricLayout = calculateSymmetricLayout(levelNodes, symmetryAxisX, availableWidth, y);
+                    levelNodes.forEach((node, index) => {
+                        node.x = symmetricLayout[index].x;
+                        node.y = symmetricLayout[index].y;
+                    });
+                    console.log(`第一级的${levelNodes.length}个节点已对称分布`);
+                }
             } else {
-                // 多节点均匀分布，确保不重叠且在可用宽度内
-                const totalNodeWidth = levelNodes.reduce((total, node) => {
-                    const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
-                    const nodeWidth = node.width || nodeDimensions.width;
-                    return total + nodeWidth;
-                }, 0);
-                
-                // 计算节点间距，确保所有节点都在可用宽度内
-                const totalSpacing = availableWidth - totalNodeWidth;
-                const spacing = totalSpacing / (levelNodes.length - 1);
-                
-                // 确保最小间距
-                const minSpacing = Math.max(80, spacing);
-                
-                // 重新计算起始位置，确保居中
-                const requiredWidth = totalNodeWidth + (levelNodes.length - 1) * minSpacing;
-                const startX = (width - requiredWidth) / 2;
-                
-                let currentX = startX;
+                // 其他层级节点以第一级关键词节点为轴严格对称分布
+                const symmetricLayout = calculateSymmetricLayout(levelNodes, symmetryAxisX, availableWidth, y);
                 levelNodes.forEach((node, index) => {
-                    const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
-                    const nodeWidth = node.width || nodeDimensions.width;
-                    
-                    if (index === 0) {
-                        node.x = startX + nodeWidth / 2;
-                    } else {
-                        currentX += minSpacing;
-                        node.x = currentX + nodeWidth / 2;
-                        currentX += nodeWidth;
-                    }
-                    node.y = y;
+                    node.x = symmetricLayout[index].x;
+                    node.y = symmetricLayout[index].y;
                 });
+                console.log(`第${level + 1}级的${levelNodes.length}个节点已以第一级关键词节点为轴对称分布`);
             }
         });
         
-        // 严格的边界验证，确保所有节点都在边界内
+        // 严格的边界验证，确保所有节点都在边界内，但保护第一级关键词节点的居中位置
         nodes.forEach(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
             const nodeWidth = node.width || nodeDimensions.width;
             const nodeHeight = node.height || nodeDimensions.height;
             
-            // 确保节点不超出左右边界，增加额外的安全边距
-            const safeMargin = margin + 20; // 额外20px安全边距
-            if (node.x - nodeWidth / 2 < safeMargin) {
-                node.x = safeMargin + nodeWidth / 2;
-            }
-            if (node.x + nodeWidth / 2 > width - safeMargin) {
-                node.x = width - safeMargin - nodeWidth / 2;
-            }
+            // 检查是否是第一级关键词节点
+            const isFirstLevelKeywordNode = keywordNode && node.id === keywordNode.id;
             
-            // 确保节点不超出上下边界，增加额外的安全边距
+            // 增加安全边距
+            const safeMargin = margin + 20; // 额外20px安全边距
             const safeTopMargin = topMargin + 20; // 额外20px安全边距
             const safeBottomMargin = bottomMargin + 20; // 额外20px安全边距
-            if (node.y - nodeHeight / 2 < safeTopMargin) {
-                node.y = safeTopMargin + nodeHeight / 2;
-            }
-            if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
-                node.y = height - safeBottomMargin - nodeHeight / 2;
+            
+            if (isFirstLevelKeywordNode) {
+                // 第一级关键词节点：只检查上下边界，强制保持水平居中
+                console.log(`保护第一级关键词节点"${node.label}"的严格居中位置`);
+                
+                // 确保节点不超出上下边界
+                if (node.y - nodeHeight / 2 < safeTopMargin) {
+                    node.y = safeTopMargin + nodeHeight / 2;
+                }
+                if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                    node.y = height - safeBottomMargin - nodeHeight / 2;
+                }
+                // 强制保持严格居中
+                node.x = width / 2;
+            } else {
+                // 其他节点：正常的边界检查
+                // 确保节点不超出左右边界
+                if (node.x - nodeWidth / 2 < safeMargin) {
+                    node.x = safeMargin + nodeWidth / 2;
+                }
+                if (node.x + nodeWidth / 2 > width - safeMargin) {
+                    node.x = width - safeMargin - nodeWidth / 2;
+                }
+                
+                // 确保节点不超出上下边界
+                if (node.y - nodeHeight / 2 < safeTopMargin) {
+                    node.y = safeTopMargin + nodeHeight / 2;
+                }
+                if (node.y + nodeHeight / 2 > height - safeBottomMargin) {
+                    node.y = height - safeBottomMargin - nodeHeight / 2;
+                }
             }
         });
         
-        console.log('坐标分配完成，严格边界验证通过');
+        console.log('对称坐标分配完成，严格边界验证通过');
+    }
+    
+    // 计算以关键词节点为轴的严格对称布局
+    function calculateSymmetricLayout(levelNodes, symmetryAxisX, availableWidth, y) {
+        console.log(`计算严格对称布局，节点数量: ${levelNodes.length}，对称轴: ${symmetryAxisX}`);
+        
+        const layout = [];
+        const nodeCount = levelNodes.length;
+        
+        // 计算所有节点的实际宽度
+        const nodeWidths = levelNodes.map(node => {
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
+            return node.width || nodeDimensions.width;
+        });
+        
+        // 固定间距，确保节点不重叠
+        const minSpacing = 150; // 增加间距，避免节点重叠
+        
+        if (nodeCount === 1) {
+            // 单个节点严格放在对称轴上
+            layout.push({
+                x: symmetryAxisX,
+                y: y
+            });
+            console.log(`单节点居中: ${levelNodes[0].label} at (${symmetryAxisX}, ${y})`);
+        } else if (nodeCount === 2) {
+            // 两个节点严格对称分布在对称轴两侧
+            const node0Width = nodeWidths[0];
+            const node1Width = nodeWidths[1];
+            
+            // 计算总宽度（节点宽度 + 间距）
+            const totalWidth = node0Width + minSpacing + node1Width;
+            
+            // 从对称轴开始，向左和向右分配
+            const leftNodeX = symmetryAxisX - totalWidth / 2 + node0Width / 2;
+            const rightNodeX = symmetryAxisX + totalWidth / 2 - node1Width / 2;
+            
+            layout.push({
+                x: leftNodeX,
+                y: y
+            });
+            layout.push({
+                x: rightNodeX,
+                y: y
+            });
+            console.log(`两节点对称: ${levelNodes[0].label} at (${leftNodeX.toFixed(1)}, ${y}), ${levelNodes[1].label} at (${rightNodeX.toFixed(1)}, ${y})`);
+        } else if (nodeCount === 3) {
+            // 三个节点：中间一个在轴上，两侧各一个
+            const node0Width = nodeWidths[0];
+            const node1Width = nodeWidths[1];
+            const node2Width = nodeWidths[2];
+            
+            // 计算左侧和右侧的总宽度
+            const leftWidth = node0Width + minSpacing;
+            const rightWidth = minSpacing + node2Width;
+            
+            layout.push({
+                x: symmetryAxisX - leftWidth, // 左侧节点
+                y: y
+            });
+            layout.push({
+                x: symmetryAxisX, // 中间节点在对称轴上
+                y: y
+            });
+            layout.push({
+                x: symmetryAxisX + rightWidth, // 右侧节点
+                y: y
+            });
+            console.log(`三节点对称: 左(${(symmetryAxisX - leftWidth).toFixed(1)}), 中(${symmetryAxisX}), 右(${(symmetryAxisX + rightWidth).toFixed(1)})`);
+        } else if (nodeCount === 4) {
+            // 四个节点：对称轴两侧各两个，严格对称分布
+            const node0Width = nodeWidths[0];
+            const node1Width = nodeWidths[1];
+            const node2Width = nodeWidths[2];
+            const node3Width = nodeWidths[3];
+            
+            // 计算左侧两个节点的位置
+            const leftNode1X = symmetryAxisX - minSpacing - node0Width - node1Width / 2;
+            const leftNode2X = symmetryAxisX - node0Width / 2;
+            
+            // 计算右侧两个节点的位置（镜像对称）
+            const rightNode1X = symmetryAxisX + node3Width / 2;
+            const rightNode2X = symmetryAxisX + minSpacing + node2Width + node3Width / 2;
+            
+            layout.push({
+                x: leftNode1X, // 最左侧节点
+                y: y
+            });
+            layout.push({
+                x: leftNode2X, // 左侧第二个节点
+                y: y
+            });
+            layout.push({
+                x: rightNode1X, // 右侧第一个节点
+                y: y
+            });
+            layout.push({
+                x: rightNode2X, // 最右侧节点
+                y: y
+            });
+            
+            console.log(`四节点严格对称分布: 左2(${leftNode1X.toFixed(1)}), 左1(${leftNode2X.toFixed(1)}), 右1(${rightNode1X.toFixed(1)}), 右2(${rightNode2X.toFixed(1)})`);
+        } else {
+            // 超过4个节点的情况（由于我们已经限制每层最多4个，这种情况不应该发生）
+            console.warn(`节点数量(${nodeCount})超过4个，这不应该发生，使用备用布局`);
+            
+            // 备用方案：均匀分布
+            const totalWidth = nodeWidths.reduce((sum, width) => sum + width, 0) + (nodeCount - 1) * minSpacing;
+            let currentX = symmetryAxisX - totalWidth / 2;
+            
+            levelNodes.forEach((node, index) => {
+                const nodeWidth = nodeWidths[index];
+                currentX += nodeWidth / 2;
+                layout.push({
+                    x: currentX,
+                    y: y
+                });
+                currentX += nodeWidth / 2 + minSpacing;
+            });
+        }
+        
+        console.log('严格对称布局计算完成:', layout.map((pos, i) => `${levelNodes[i].label}: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`));
+        return layout;
     }
 
 
@@ -4895,8 +5847,8 @@ ${introText}
         if (!nodes || nodes.length === 0) return;
         
         // 统一的边界间距
-        const margin = 150; // 左右边界间距
-        const topMargin = 180; // 顶部边界间距（为焦点问题留出空间）
+        const margin = 200; // 增加左右边界间距，确保对称性
+        const topMargin = 220; // 增加顶部边界间距（为焦点问题留出更多空间）
         const bottomMargin = 150; // 底部边界间距
         
         // 计算所有节点的边界
@@ -4904,7 +5856,7 @@ ${introText}
         let maxX = -Infinity, maxY = -Infinity;
         
         nodes.forEach(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 40, 24);
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 30);
             const nodeWidth = node.width || nodeDimensions.width;
             const nodeHeight = node.height || nodeDimensions.height;
             
@@ -4922,8 +5874,8 @@ ${introText}
                 
                 if (source && target) {
                     // 计算连线起点和终点
-                    const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 40, 24);
-                    const targetDimensions = calculateNodeDimensions(target.label || '', 100, 40, 24);
+                    const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 50, 30);
+                    const targetDimensions = calculateNodeDimensions(target.label || '', 100, 50, 30);
                     
                     const sourceWidth = source.width || sourceDimensions.width;
                     const sourceHeight = source.height || sourceDimensions.height;
@@ -4970,7 +5922,7 @@ ${introText}
                     const arrowY = endY - (endY - startY) * arrowOffset;
                     
                     // 考虑连线标签
-                    const textWidth = Math.max(60, (link.label || '双击编辑').length * 8);
+                    const textWidth = Math.max(80, (link.label || '双击编辑').length * 12);
                     const midX = (startX + endX) / 2;
                     const midY = (startY + endY) / 2;
                     

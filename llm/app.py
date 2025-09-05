@@ -38,65 +38,80 @@ class DeepSeekAPI:
         if not self.api_key:
             raise ValueError("DeepSeek API密钥未配置")
     
-    def chat(self, message, max_tokens=2000, temperature=0.7):
-        """与DeepSeek对话"""
-        try:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}"
-            }
-            
-            data = {
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "user", 
-                        "content": message
-                    }
-                ],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": False
-            }
-            
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                return {
-                    "success": True,
-                    "response": content
+    def chat(self, message, max_tokens=2000, temperature=0.7, max_retries=2):
+        """与DeepSeek对话，支持重试机制"""
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        data = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "user", 
+                    "content": message
                 }
-            else:
-                logger.error(f"API请求失败: {response.status_code} - {response.text}")
-                return {
-                    "success": False,
-                    "error": f"API请求失败: {response.status_code}"
-                }
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": False
+        }
+        
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"尝试第 {attempt + 1} 次调用DeepSeek API...")
                 
-        except requests.exceptions.Timeout:
-            return {
-                "success": False,
-                "error": "请求超时"
-            }
-        except requests.exceptions.RequestException as e:
-            logger.error(f"请求异常: {str(e)}")
-            return {
-                "success": False,
-                "error": f"请求异常: {str(e)}"
-            }
-        except Exception as e:
-            logger.error(f"未知错误: {str(e)}")
-            return {
-                "success": False,
-                "error": f"未知错误: {str(e)}"
-            }
+                response = requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=data,
+                    timeout=120  # 增加超时时间到120秒
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+                    logger.info("DeepSeek API调用成功")
+                    return {
+                        "success": True,
+                        "response": content
+                    }
+                else:
+                    logger.error(f"API请求失败: {response.status_code} - {response.text}")
+                    if attempt == max_retries:
+                        return {
+                            "success": False,
+                            "error": f"API请求失败: {response.status_code}"
+                        }
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"第 {attempt + 1} 次请求超时")
+                if attempt == max_retries:
+                    return {
+                        "success": False,
+                        "error": "请求超时，已重试多次"
+                    }
+                continue
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"第 {attempt + 1} 次请求异常: {str(e)}")
+                if attempt == max_retries:
+                    return {
+                        "success": False,
+                        "error": f"请求异常: {str(e)}"
+                    }
+                continue
+                
+            except Exception as e:
+                logger.error(f"第 {attempt + 1} 次未知错误: {str(e)}")
+                if attempt == max_retries:
+                    return {
+                        "success": False,
+                        "error": f"未知错误: {str(e)}"
+                    }
+                continue
 
 # 创建DeepSeek API实例
 try:
