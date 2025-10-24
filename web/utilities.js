@@ -632,6 +632,9 @@ function downloadConceptMapImage() {
             return;
         }
 
+        // 退出所有编辑模式，确保下载的图片是干净的状态
+        exitAllEditModes();
+
         try {
             // 获取SVG元素
             const svg = document.querySelector('.concept-graph');
@@ -740,4 +743,72 @@ function downloadConceptMapImage() {
             showMessage('下载失败: ' + error.message, 'error');
         }
     }
+
+// exitAllEditModes - 退出所有编辑模式
+function exitAllEditModes() {
+        console.log('退出所有编辑模式...');
+        
+        // 1. 取消节点选中状态
+        if (typeof deselectNode === 'function') {
+            deselectNode();
+        }
+        
+        // 2. 退出连线创建模式
+        if (typeof window.isLinkCreationMode !== 'undefined' && window.isLinkCreationMode) {
+            if (typeof exitLinkCreationMode === 'function') {
+                exitLinkCreationMode();
+            } else {
+                // 手动清理连线创建模式状态
+                window.isLinkCreationMode = false;
+                window.linkSourceNodeId = null;
+                window.linkTargetNodeId = null;
+                
+                // 恢复添加连线按钮状态
+                if (window.addLinkBtn) {
+                    window.addLinkBtn.textContent = '添加连线';
+                    window.addLinkBtn.style.backgroundColor = '';
+                }
+                
+                // 移除虚拟连接线
+                const virtualLines = document.querySelectorAll('.virtual-connection-line');
+                virtualLines.forEach(line => line.remove());
+            }
+        }
+        
+        // 3. 停止拖拽操作
+        if (typeof window.isDragging !== 'undefined' && window.isDragging) {
+            window.isDragging = false;
+        }
+        
+        // 4. 停止调整大小操作
+        if (typeof window.isResizing !== 'undefined' && window.isResizing) {
+            window.isResizing = false;
+            window.resizeStartX = 0;
+            window.resizeStartY = 0;
+        }
+        
+        // 5. 移除所有浮动输入框
+        const floatingInputs = document.querySelectorAll('input[style*="position: fixed"], input[style*="position: absolute"]');
+        floatingInputs.forEach(input => {
+            if (input.parentNode) {
+                input.parentNode.removeChild(input);
+            }
+        });
+        
+        // 6. 移除所有控制手柄
+        const nodeHandles = document.querySelectorAll('.node-handle');
+        nodeHandles.forEach(handle => handle.remove());
+        
+        // 7. 更新按钮状态
+        if (typeof updateNodeOperationButtons === 'function') {
+            updateNodeOperationButtons();
+        }
+        
+        console.log('所有编辑模式已退出');
+    }
+
+// 将exitAllEditModes函数添加到全局作用域
+if (typeof window !== 'undefined') {
+    window.exitAllEditModes = exitAllEditModes;
+}
 

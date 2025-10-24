@@ -56,7 +56,7 @@ function drawGraph(data) {
         console.log('concept-graph SVG 元素找到:', svg);
         
         const width = svg.clientWidth || 800;
-        const height = svg.clientHeight || 500;
+        const height = svg.clientHeight || 700;
         console.log('SVG 尺寸:', width, 'x', height);
 
         // 保存焦点问题元素（如果存在）
@@ -1036,7 +1036,7 @@ function showLoadingAnimation() {
             // 创建背景矩形
             const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             bgRect.setAttribute('x', '250');
-            bgRect.setAttribute('y', '280');
+            bgRect.setAttribute('y', '330');
             bgRect.setAttribute('width', '300');
             bgRect.setAttribute('height', '50');
             bgRect.setAttribute('rx', '8');
@@ -1048,7 +1048,7 @@ function showLoadingAnimation() {
             // 创建加载动画圆圈
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             circle.setAttribute('cx', '280');
-            circle.setAttribute('cy', '305');
+            circle.setAttribute('cy', '355');
             circle.setAttribute('r', '10');
             circle.setAttribute('fill', '#667eea');
             circle.setAttribute('fill-opacity', '0.8');
@@ -1069,7 +1069,7 @@ function showLoadingAnimation() {
             // 创建文字
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('x', '350');
-            text.setAttribute('y', '305');
+            text.setAttribute('y', '355');
             text.setAttribute('text-anchor', 'left');
             text.setAttribute('dominant-baseline', 'middle');
             text.setAttribute('font-size', '14');
@@ -1331,7 +1331,7 @@ function displayFocusQuestion() {
         // 获取SVG的实际尺寸和viewBox
         const svgRect = svg.getBoundingClientRect();
         const svgWidth = svgRect.width || 800;
-        const svgHeight = svgRect.height || 600;
+        const svgHeight = svgRect.height || 700;
         
         // 获取当前viewBox信息
         const viewBox = svg.getAttribute('viewBox');

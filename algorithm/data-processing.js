@@ -2,6 +2,26 @@
 // 处理概念图数据的转换、分析和处理
 
 /**
+ * 验证层级关系是否有效（只允许相邻层连接）
+ * @param {string} layerRelation - 层级关系标记（如L1-L2、L2-L3等）
+ * @returns {boolean} 是否有效
+ */
+function validateLayerRelation(layerRelation) {
+    if (!layerRelation || layerRelation.trim() === '') {
+        return true; // 如果没有层级信息，允许通过（向后兼容）
+    }
+    
+    const validRelations = ['L1-L2', 'L2-L3', 'L2-L1', 'L3-L2'];
+    const isValid = validRelations.includes(layerRelation.trim());
+    
+    if (!isValid) {
+        console.log('⚠️ 无效的层级关系:', layerRelation, '有效关系:', validRelations);
+    }
+    
+    return isValid;
+}
+
+/**
  * 确保第一层只有一个节点，内容与焦点问题相关
  * @param {Object} conceptData - 概念图数据
  * @returns {Object} 处理后的概念图数据
@@ -71,47 +91,29 @@ function ensureSingleFirstLayer(conceptData) {
         }
     }
     
-    // 重新构建连线，确保所有其他节点都连接到第一层节点
-    const newLinks = [];
+    // 保持原有的连线，不自动添加额外连线
+    const newLinks = [...links];
+    
+    // 只调整连线的方向，确保第一层节点作为源节点
     const firstLayerId = firstLayerNode.id;
-    
-    // 添加从第一层到其他节点的连线
-    nodes.slice(1).forEach(node => {
-        // 检查是否已经存在连线
-        const existingLink = links.find(link => 
-            (link.source === firstLayerId && link.target === node.id) ||
-            (link.source === node.id && link.target === firstLayerId)
-        );
-        
-        if (!existingLink) {
-            newLinks.push({
-                id: `link-${firstLayerId}-${node.id}`,
-                source: firstLayerId,
-                target: node.id,
-                label: '包含',
-                type: 'hierarchy',
-                strength: 8
-            });
-        } else {
-            // 如果连线方向不对，调整方向
-            if (existingLink.source !== firstLayerId) {
-                existingLink.source = firstLayerId;
-                existingLink.target = node.id;
-            }
-            newLinks.push(existingLink);
-        }
-    });
-    
-    // 添加其他节点之间的连线（如果存在）
-    links.forEach(link => {
-        if (link.source !== firstLayerId && link.target !== firstLayerId) {
-            newLinks.push(link);
+    newLinks.forEach(link => {
+        // 如果连线涉及第一层节点，确保第一层节点是源节点
+        if (link.target === firstLayerId) {
+            // 交换源和目标
+            const temp = link.source;
+            link.source = link.target;
+            link.target = temp;
         }
     });
     
     console.log('第一层节点处理完成:', firstLayerNode.label);
     console.log('节点数量:', nodes.length);
     console.log('连线数量:', newLinks.length);
+    console.log('连线详情:', newLinks.map(link => ({
+        source: nodes.find(n => n.id === link.source)?.label,
+        target: nodes.find(n => n.id === link.target)?.label,
+        label: link.label
+    })));
     
     return {
         nodes: nodes,
@@ -214,31 +216,31 @@ function parseTriplesFromResponse(response) {
         // 移除可能的序号前缀（如："1. "、"1、"、"- "等）
         trimmedLine = trimmedLine.replace(/^[\d\-\*•]+[\.、\s]+/, '');
         
-        // 尝试匹配新格式：(概念1, 关系, 概念2, 层次)
-        let match = trimmedLine.match(/^\((.*?),\s*(.*?),\s*(.*?),\s*(L\d+-L\d+|L\d+-L\d+)\)$/);
+        // 尝试匹配新格式：(概念1, 关系, 概念2, 层级关系)
+        let match = trimmedLine.match(/^\((.*?),\s*(.*?),\s*(.*?),\s*(L\d+-L\d+)\)$/);
         
-        // 如果没有层次信息，尝试匹配旧格式
+        // 如果没有层级信息，尝试匹配旧格式
         if (!match) {
             // 1. 标准英文括号格式: (概念1, 关系, 概念2)
             match = trimmedLine.match(/^\((.*?),\s*(.*?),\s*(.*?)\)$/);
             if (match) {
-                match.push(''); // 添加空的层次信息
+                match.push(''); // 添加空的层级信息
             }
         }
         
-        // 2. 中文括号格式: （概念1, 关系, 概念2, 层次）
+        // 2. 中文括号格式: （概念1, 关系, 概念2, 层级关系）
         if (!match) {
-            match = trimmedLine.match(/^（(.*?),\s*(.*?),\s*(.*?),?\s*(L\d+-L\d+|L\d+-L\d+)?\s*）$/);
+            match = trimmedLine.match(/^（(.*?),\s*(.*?),\s*(.*?),?\s*(L\d+-L\d+)?\s*）$/);
         }
         
-        // 3. 中文逗号格式: (概念1，关系，概念2，层次)
+        // 3. 中文逗号格式: (概念1，关系，概念2，层级关系)
         if (!match) {
-            match = trimmedLine.match(/^\((.*?)，\s*(.*?)，\s*(.*?)，?\s*(L\d+-L\d+|L\d+-L\d+)?\s*\)$/);
+            match = trimmedLine.match(/^\((.*?)，\s*(.*?)，\s*(.*?)，?\s*(L\d+-L\d+)?\s*\)$/);
         }
         
-        // 4. 混合格式: （概念1，关系，概念2，层次）
+        // 4. 混合格式: （概念1，关系，概念2，层级关系）
         if (!match) {
-            match = trimmedLine.match(/^（(.*?)，\s*(.*?)，\s*(.*?)，?\s*(L\d+-L\d+|L\d+-L\d+)?\s*）$/);
+            match = trimmedLine.match(/^（(.*?)，\s*(.*?)，\s*(.*?)，?\s*(L\d+-L\d+)?\s*）$/);
         }
         
         // 5. 宽松格式：只要包含括号和逗号
@@ -258,7 +260,7 @@ function parseTriplesFromResponse(response) {
             const concept1 = match[1].trim();
             const relation = match[2].trim();
             const concept2 = match[3].trim();
-            const layer = match[4] ? match[4].trim() : '';
+            const layerRelation = match[4] ? match[4].trim() : '';
             
             // 验证提取的内容不为空且合理（长度不超过50个字符）
             if (concept1 && relation && concept2 && 
@@ -266,20 +268,33 @@ function parseTriplesFromResponse(response) {
                 relation.length > 0 && relation.length <= 20 &&
                 concept2.length > 0 && concept2.length <= 50) {
                 
+                // 验证层级关系是否有效
+                const isValidLayerRelation = validateLayerRelation(layerRelation);
+                if (!isValidLayerRelation) {
+                    console.log('× 层级关系无效，跳过:', { 
+                        concept1, 
+                        relation, 
+                        concept2, 
+                        layerRelation,
+                        reason: '层级关系不符合相邻层规则'
+                    });
+                    return; // 跳过这个三元组
+                }
+                
                 triples.push({
                     source: concept1,
                     relation: relation,
                     target: concept2,
-                    layer: layer
+                    layer: layerRelation // 保持layer字段名以兼容现有代码
                 });
                 console.log('✓ 解析到三元组:', { 
                     source: concept1, 
                     relation: relation, 
                     target: concept2,
-                    layer: layer || '未指定'
+                    layer_relation: layerRelation || '未指定'
                 });
             } else {
-                console.log('× 三元组格式不合理:', { concept1, relation, concept2, layer });
+                console.log('× 三元组格式不合理:', { concept1, relation, concept2, layerRelation });
             }
         } else {
             console.log('× 无法解析的行:', trimmedLine);
@@ -313,7 +328,7 @@ function convertTriplesToConceptData(triples) {
         }
     }
     
-    // 分析三元组中的层次信息，确定第一层节点
+    // 分析三元组中的层次信息，确定各层节点
     const layer1Nodes = new Set();
     const layer2Nodes = new Set();
     const layer3Nodes = new Set();
@@ -327,6 +342,12 @@ function convertTriplesToConceptData(triples) {
         } else if (layer === 'L2-L3') {
             layer2Nodes.add(source);
             layer3Nodes.add(target);
+        } else if (layer === 'L2-L1') {
+            layer2Nodes.add(source);
+            layer1Nodes.add(target);
+        } else if (layer === 'L3-L2') {
+            layer3Nodes.add(source);
+            layer2Nodes.add(target);
         } else if (layer === 'L2-L2') {
             layer2Nodes.add(source);
             layer2Nodes.add(target);
@@ -371,6 +392,34 @@ function convertTriplesToConceptData(triples) {
         if (layer1Nodes.has(nodeName)) return 1;
         if (layer2Nodes.has(nodeName)) return 2;
         if (layer3Nodes.has(nodeName)) return 3;
+        
+        // 如果节点未在层级中定义，根据连接关系推断
+        // 查找该节点作为源或目标的三元组
+        const relatedTriples = triples.filter(triple => 
+            triple.source === nodeName || triple.target === nodeName
+        );
+        
+        if (relatedTriples.length === 0) {
+            return 3; // 默认放在第三层
+        }
+        
+        // 根据连接关系推断层级
+        for (const triple of relatedTriples) {
+            if (triple.layer === 'L1-L2') {
+                if (triple.source === nodeName) return 1;
+                if (triple.target === nodeName) return 2;
+            } else if (triple.layer === 'L2-L3') {
+                if (triple.source === nodeName) return 2;
+                if (triple.target === nodeName) return 3;
+            } else if (triple.layer === 'L2-L1') {
+                if (triple.source === nodeName) return 2;
+                if (triple.target === nodeName) return 1;
+            } else if (triple.layer === 'L3-L2') {
+                if (triple.source === nodeName) return 3;
+                if (triple.target === nodeName) return 2;
+            }
+        }
+        
         return 3; // 默认放在第三层
     };
     
@@ -413,7 +462,7 @@ function convertTriplesToConceptData(triples) {
         }
         
         // 添加关系连线
-        links.push({
+        const newLink = {
             id: `link-${index}`,
             source: nodeMap.get(source),
             target: nodeMap.get(target),
@@ -421,6 +470,15 @@ function convertTriplesToConceptData(triples) {
             type: 'relation',
             strength: 6,
             layer: layer || ''
+        };
+        links.push(newLink);
+        console.log(`添加连线 #${index}:`, {
+            source: source,
+            target: target,
+            relation: relation,
+            layer: layer,
+            sourceId: newLink.source,
+            targetId: newLink.target
         });
     });
     
