@@ -1153,9 +1153,10 @@ function updateGenerationInfo(type, data, conceptData, aiResponse, aiDescription
                 const nodeType = node.type === 'main' ? '🔷' : '🔹';
                 const nodeLabel = escapeHtml(node.label || '');
                 const nodeDesc = node.description ? escapeHtml(node.description) : '';
+                const layerInfo = node.layer ? ` [L${node.layer}]` : '';
                 html += `<div class="node-item">`;
                 html += `<span class="node-icon">${nodeType}</span>`;
-                html += `<span class="node-label">${nodeLabel}</span>`;
+                html += `<span class="node-label">${nodeLabel}${layerInfo}</span>`;
                 if (nodeDesc) {
                     html += `<span class="node-desc"> - ${nodeDesc}</span>`;
                 }
@@ -1178,12 +1179,16 @@ function updateGenerationInfo(type, data, conceptData, aiResponse, aiDescription
                 const targetLabel = targetNode ? escapeHtml(targetNode.label) : link.target;
                 const linkLabel = escapeHtml(link.label || '关联');
                 
+                // 获取层级信息
+                const sourceLayer = sourceNode ? `[L${sourceNode.layer}]` : '';
+                const targetLayer = targetNode ? `[L${targetNode.layer}]` : '';
+                
                 html += `<div class="link-item">`;
-                html += `<span class="link-source">${sourceLabel}</span>`;
+                html += `<span class="link-source">${sourceLabel}${sourceLayer}</span>`;
                 html += `<span class="link-arrow">→</span>`;
                 html += `<span class="link-label">${linkLabel}</span>`;
                 html += `<span class="link-arrow">→</span>`;
-                html += `<span class="link-target">${targetLabel}</span>`;
+                html += `<span class="link-target">${targetLabel}${targetLayer}</span>`;
                 html += `</div>`;
             });
             html += `</div>`;
@@ -1352,7 +1357,7 @@ function displayFocusQuestion() {
         
         // 分别设置左右和上下边距 - 与assignCoordinates函数中保持一致
         const horizontalMargin = 20; // 左右边距：最小化，与sugiyama-layout.js保持一致
-        const topMargin = 40; // 顶部间距，让焦点问题框靠近第一层节点
+        const topMargin = -120; // 顶部间距，将焦点问题向上移动到最顶端上方（减小值使其向上移动）
         
         // 计算焦点问题框的尺寸和位置（考虑viewBox的偏移）
         const focusBoxWidth = Math.max(400, viewBoxWidth - 2 * horizontalMargin); // 确保最小宽度

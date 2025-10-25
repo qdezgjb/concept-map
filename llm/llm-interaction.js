@@ -199,40 +199,80 @@ class TripleExtractionService {
         return `# 重要任务：从文本中提取概念关系，构建分层知识图谱
 
 ## ⚠️ 核心规则（必须严格遵守）：
-- **为每个概念添加层级标记（L1、L2、L3等）**
-- **只在相邻层之间提取三元组关系**（L1-L2、L2-L3等）
-- **严格禁止跨层提取**（绝对不能从L1直接连接到L3）
-- **严格禁止同层提取**（绝对不能在同一层内提取概念关系，如L2-L2、L3-L3）
-- **总三元组数：5-8个（严格限制）**
+- **为每个概念添加层级标记（L1、L2、L3、L4等）**
+- **只在相邻层之间提取三元组关系**（L1-L2、L2-L3、L3-L4等）
+- **严格禁止跨层提取**（绝对不能从L1直接连接到L3或L4）
+- **严格禁止同层提取**（绝对不能在同一层内提取概念关系，如L2-L2、L3-L3、L4-L4）
+- **总三元组数：15-20个（严格限制）**
+- **每层节点数量限制：L1=1个，L2=4-5个，L3=4-5个，L4=4-5个**
+- **内容长度要求：约300字左右**
+- **层级完整性要求：每一层都必须有节点**
+- **相邻层连接要求：每个相邻层之间都必须有三元组提取**
 
 ## 层级划分方法：
-1. **L1（第一层）**：核心主题概念（通常1个）
-2. **L2（第二层）**：主要分类或维度（3-4个）
-3. **L3（第三层）**：具体细节或实例（4-5个）
+1. **L1（第一层）**：核心主题概念（必须1个）
+2. **L2（第二层）**：主要分类或维度（必须4-5个）
+3. **L3（第三层）**：具体分类或子维度（必须4-5个）
+4. **L4（第四层）**：具体细节或实例（必须4-5个）
 
 ## 提取规则：
 1. 将文本按句号、分号、逗号等标点符号分割成行
 2. 分析每行内容，确定概念的层级归属
-3. **只在相邻层之间提取关系**（L1-L2、L2-L3）
-4. 每对相邻层最多提取1-2个三元组
-5. **绝对禁止同层和跨层提取**
-6. **L1层概念只能连接到L2层，不能直接连接到L3层**
-7. **L2层概念只能连接到L1层或L3层，不能连接到其他L2层概念**
-8. **L3层概念只能连接到L2层，不能连接到L1层或其他L3层概念**
+3. **严格控制每层节点数量**：
+   - L1层：必须1个节点
+   - L2层：必须4-5个节点
+   - L3层：必须4-5个节点
+   - L4层：必须4-5个节点
+4. **层级完整性要求**：
+   - 必须确保L1、L2、L3、L4每一层都有至少1个节点
+   - 不能出现空层的情况
+5. **相邻层连接要求**：
+   - L1-L2之间必须有至少1个三元组
+   - L2-L3之间必须有至少1个三元组
+   - L3-L4之间必须有至少1个三元组
+   - 确保相邻层之间有连接关系
+6. **只在相邻层之间提取关系**（L1-L2、L2-L3、L3-L4）
+7. 每对相邻层最多提取2-3个三元组
+8. **绝对禁止同层和跨层提取**
+9. **L1层概念只能连接到L2层，不能直接连接到L3层或L4层**
+10. **L2层概念只能连接到L1层或L3层，不能连接到L4层**
+11. **L3层概念只能连接到L2层或L4层，不能连接到L1层**
+12. **L4层概念只能连接到L3层，不能连接到L1层或L2层**
+13. **如果某层节点数量已达上限，跳过该层的额外节点**
+14. **内容长度控制：确保提取的内容适合约300字的介绍**
 
 ## 🔍 层级验证步骤（必须执行）：
 在输出每个三元组之前，必须进行以下检查：
-1. **检查概念1的层级**：确定它是L1、L2还是L3
-2. **检查概念2的层级**：确定它是L1、L2还是L3
-3. **验证层级关系**：
+1. **检查概念1的层级**：确定它是L1、L2、L3还是L4
+2. **检查概念2的层级**：确定它是L1、L2、L3还是L4
+3. **检查节点数量限制**：
+   - 如果L1层已有1个节点，不能再添加L1节点
+   - 如果L2层已有4个节点，不能再添加L2节点
+   - 如果L3层已有4个节点，不能再添加L3节点
+   - 如果L4层已有5个节点，不能再添加L4节点
+4. **验证层级关系**：
    - 如果概念1是L1，概念2必须是L2（L1-L2）
    - 如果概念1是L2，概念2必须是L1或L3（L2-L1或L2-L3）
-   - 如果概念1是L3，概念2必须是L2（L3-L2）
-4. **拒绝无效连接**：
-   - ❌ 拒绝L1-L3（跨层）
-   - ❌ 拒绝L2-L2（同层）
-   - ❌ 拒绝L3-L3（同层）
-   - ❌ 拒绝L3-L1（跨层）
+   - 如果概念1是L3，概念2必须是L2或L4（L3-L2或L3-L4）
+   - 如果概念1是L4，概念2必须是L3（L4-L3）
+5. **拒绝无效连接**：
+   - ❌ 拒绝L1-L3、L1-L4（跨层）
+   - ❌ 拒绝L2-L4（跨层）
+   - ❌ 拒绝L2-L2、L3-L3、L4-L4（同层）
+   - ❌ 拒绝L3-L1、L4-L1、L4-L2（跨层）
+   - ❌ 拒绝超出节点数量限制的连接
+6. **层级完整性检查**：
+   - ✓ 确保L1层至少有1个节点
+   - ✓ 确保L2层至少有1个节点
+   - ✓ 确保L3层至少有1个节点
+   - ✓ 确保L4层至少有1个节点
+7. **相邻层连接检查**：
+   - ✓ 确保L1-L2之间有至少1个三元组
+   - ✓ 确保L2-L3之间有至少1个三元组
+   - ✓ 确保L3-L4之间有至少1个三元组
+8. **内容长度检查**：
+   - ✓ 确保提取的内容适合约300字的介绍
+   - ✓ 避免过于冗长或过于简短的描述
 
 ## 输出格式（严格遵守）：
 每行一个三元组，格式为：(概念1, 关系词, 概念2, 层级关系)
@@ -240,7 +280,11 @@ class TripleExtractionService {
 层级关系标记：
 - L1-L2: 第一层到第二层的关系
 - L2-L3: 第二层到第三层的关系
-- 禁止L1-L3、L2-L2、L3-L3等其他组合
+- L3-L4: 第三层到第四层的关系
+- L2-L1: 第二层到第一层的关系
+- L3-L2: 第三层到第二层的关系
+- L4-L3: 第四层到第三层的关系
+- 禁止L1-L3、L1-L4、L2-L4、L2-L2、L3-L3、L4-L4等其他组合
 
 ## 关系词选择（重要：简洁且能读成完整句子）：
 **关系词要简洁，不含助词（如"的"、"了"等），但能让"概念1 + 关系词 + 概念2"连读成通顺的话**
@@ -309,23 +353,34 @@ class TripleExtractionService {
 ${introText}
 
 ## 最终检查清单：
-✓ 为每个概念明确标注层级（L1、L2、L3）
-✓ 只在相邻层之间提取关系（L1-L2、L2-L3）
-✓ 绝对禁止同层提取（L2-L2、L3-L3等）
-✓ 绝对禁止跨层提取（L1-L3等）
+✓ 为每个概念明确标注层级（L1、L2、L3、L4）
+✓ 严格控制每层节点数量（L1=1个，L2=4-5个，L3=4-5个，L4=4-5个）
+✓ 只在相邻层之间提取关系（L1-L2、L2-L3、L3-L4）
+✓ 绝对禁止同层提取（L2-L2、L3-L3、L4-L4等）
+✓ 绝对禁止跨层提取（L1-L3、L1-L4、L2-L4等）
 ✓ L1层概念只连接到L2层
 ✓ L2层概念只连接到L1层或L3层
-✓ L3层概念只连接到L2层
+✓ L3层概念只连接到L2层或L4层
+✓ L4层概念只连接到L3层
 ✓ 每个三元组都经过层级验证
-✓ 拒绝所有L3-L3连接（如：民众-新军、推翻清朝-新军）
+✓ 拒绝所有L4-L4连接
+✓ 拒绝所有L3-L3连接
 ✓ 拒绝所有L2-L2连接
-✓ 拒绝所有L1-L3连接
-✓ 总共5-8个三元组
+✓ 拒绝所有L1-L3、L1-L4连接
+✓ 拒绝所有L2-L4连接
+✓ 拒绝超出节点数量限制的连接
+✓ 总共15-20个三元组
 ✓ 每个概念2-6个字
 ✓ 关系词准确，不使用"是"、"有"
-✓ 层级关系标记正确（L1-L2、L2-L3）
+✓ 层级关系标记正确（L1-L2、L2-L3、L3-L4等）
+✓ **层级完整性：每一层都有至少1个节点**
+✓ **相邻层连接：每个相邻层之间都有至少1个三元组**
+✓ **内容长度：适合约300字的介绍**
+✓ **L1-L2之间有连接**
+✓ **L2-L3之间有连接**
+✓ **L3-L4之间有连接**
 
-请开始输出三元组（记住：绝对禁止同层和跨层提取，只在相邻层之间提取）：`;
+请开始输出三元组（记住：绝对禁止同层和跨层提取，只在相邻层之间提取，严格控制每层节点数量，确保每一层都有节点，每个相邻层之间都有三元组，内容适合约300字介绍）：`;
     }
     
 }
@@ -638,44 +693,55 @@ class ConceptMapGenerationService {
     buildConceptPrompt(type, data) {
         if (type === 'keyword') {
             return `# 任务
-请为焦点问题"${data.keyword}"生成一个三层结构的概念图，以JSON格式输出。
+请为焦点问题"${data.keyword}"生成一个四层结构的概念图，以JSON格式输出。
 
 ## ⚠️ 严格数量限制（必须遵守）：
-- **总节点数：最少8个，最多10个（严格限制）**
+- **总节点数：13-16个**
 - **第一层（L1）**：必须且只有1个节点（焦点问题本身）
-- **第二层（L2）**：必须3-4个节点（不能超过4个）
-- **第三层（L3）**：必须4-5个节点（不能超过5个）
-- **禁止输出超过10个节点**
+- **第二层（L2）**：必须4-5个节点
+- **第三层（L3）**：必须4-5个节点
+- **第四层（L4）**：必须4-5个节点
 
-# JSON格式示例（8个节点）
+# JSON格式示例（13个节点）
 {
   "nodes": [
     {"id": "1", "label": "${data.keyword}", "type": "main", "description": "第一层核心节点", "importance": 10, "layer": 1},
     {"id": "2", "label": "核心概念1", "type": "core", "description": "第二层核心概念", "importance": 8, "layer": 2},
     {"id": "3", "label": "核心概念2", "type": "core", "description": "第二层核心概念", "importance": 8, "layer": 2},
     {"id": "4", "label": "核心概念3", "type": "core", "description": "第二层核心概念", "importance": 8, "layer": 2},
-    {"id": "5", "label": "扩展概念1", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
-    {"id": "6", "label": "扩展概念2", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
-    {"id": "7", "label": "扩展概念3", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
-    {"id": "8", "label": "扩展概念4", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3}
+    {"id": "5", "label": "核心概念4", "type": "core", "description": "第二层核心概念", "importance": 8, "layer": 2},
+    {"id": "6", "label": "扩展概念1", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
+    {"id": "7", "label": "扩展概念2", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
+    {"id": "8", "label": "扩展概念3", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
+    {"id": "9", "label": "扩展概念4", "type": "detail", "description": "第三层扩展概念", "importance": 6, "layer": 3},
+    {"id": "10", "label": "细化概念1", "type": "detail", "description": "第四层细化概念", "importance": 4, "layer": 4},
+    {"id": "11", "label": "细化概念2", "type": "detail", "description": "第四层细化概念", "importance": 4, "layer": 4},
+    {"id": "12", "label": "细化概念3", "type": "detail", "description": "第四层细化概念", "importance": 4, "layer": 4},
+    {"id": "13", "label": "细化概念4", "type": "detail", "description": "第四层细化概念", "importance": 4, "layer": 4}
   ],
   "links": [
     {"source": "1", "target": "2", "label": "方面包括", "type": "relation", "strength": 8},
     {"source": "1", "target": "3", "label": "方面包括", "type": "relation", "strength": 8},
     {"source": "1", "target": "4", "label": "方面包括", "type": "relation", "strength": 8},
-    {"source": "2", "target": "5", "label": "内容包括", "type": "relation", "strength": 6},
+    {"source": "1", "target": "5", "label": "方面包括", "type": "relation", "strength": 8},
     {"source": "2", "target": "6", "label": "内容包括", "type": "relation", "strength": 6},
-    {"source": "3", "target": "7", "label": "导致", "type": "relation", "strength": 6},
-    {"source": "4", "target": "8", "label": "促进", "type": "relation", "strength": 6}
+    {"source": "2", "target": "7", "label": "内容包括", "type": "relation", "strength": 6},
+    {"source": "3", "target": "8", "label": "导致", "type": "relation", "strength": 6},
+    {"source": "4", "target": "9", "label": "促进", "type": "relation", "strength": 6},
+    {"source": "6", "target": "10", "label": "涉及", "type": "relation", "strength": 4},
+    {"source": "7", "target": "11", "label": "涉及", "type": "relation", "strength": 4},
+    {"source": "8", "target": "12", "label": "包含", "type": "relation", "strength": 4},
+    {"source": "9", "target": "13", "label": "包含", "type": "relation", "strength": 4}
   ],
   "metadata": {"keyword": "${data.keyword}", "summary": "概念图摘要", "domain": "领域"}
 }
 
 # 重要说明
-- **总节点数必须是8-10个**（包括焦点问题节点）
+- **总节点数必须是13-16个**（包括焦点问题节点）
 - 第一层只有1个节点（焦点问题）
-- 第二层3-4个节点（最核心的分类或维度）
+- 第二层4-5个节点（最核心的分类或维度）
 - 第三层4-5个节点（具体的细节或实例）
+- 第四层4-5个节点（更细化的细节或实例）
 - 节点label要简洁（2-6字），避免过长
 - **关系label必须简洁且能读成完整句子**：不含助词（如"的"、"了"），但能让"源节点 + 关系词 + 目标节点"连读通顺
   - ✓ 好："人工智能" + "领域包括" + "机器学习" = "人工智能领域包括机器学习"
@@ -688,22 +754,24 @@ class ConceptMapGenerationService {
 - 确保JSON格式正确，可直接解析
 
 ## 最终检查清单：
-✓ nodes数组长度为8-10
+✓ nodes数组长度为13-16
 ✓ layer=1的节点只有1个
-✓ layer=2的节点有3-4个
+✓ layer=2的节点有4-5个
 ✓ layer=3的节点有4-5个
+✓ layer=4的节点有4-5个
 ✓ 每个节点都有layer属性
 
 请直接输出JSON，不要有其他解释文字。`;
         } else {
-            return `分析文本提取三层结构概念图JSON：
+            return `分析文本提取四层结构概念图JSON：
 ${data.description}
 
 ## ⚠️ 严格数量限制：
-- **总节点数：最少8个，最多10个**
+- **总节点数：13-16个**
 - 第一层：1个节点（核心概念）
-- 第二层：3-4个节点（最核心的分类）
+- 第二层：4-5个节点（最核心的分类）
 - 第三层：4-5个节点（具体细节）
+- 第四层：4-5个节点（更细化的细节）
 
 格式：
 {
@@ -712,21 +780,27 @@ ${data.description}
     {"id": "2", "label": "核心概念1", "type": "core", "description": "描述", "importance": 8, "layer": 2},
     {"id": "3", "label": "核心概念2", "type": "core", "description": "描述", "importance": 8, "layer": 2},
     {"id": "4", "label": "核心概念3", "type": "core", "description": "描述", "importance": 8, "layer": 2},
-    {"id": "5", "label": "扩展概念1", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
-    {"id": "6", "label": "扩展概念2", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
-    {"id": "7", "label": "扩展概念3", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
-    {"id": "8", "label": "扩展概念4", "type": "detail", "description": "描述", "importance": 6, "layer": 3}
+    {"id": "5", "label": "核心概念4", "type": "core", "description": "描述", "importance": 8, "layer": 2},
+    {"id": "6", "label": "扩展概念1", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
+    {"id": "7", "label": "扩展概念2", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
+    {"id": "8", "label": "扩展概念3", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
+    {"id": "9", "label": "扩展概念4", "type": "detail", "description": "描述", "importance": 6, "layer": 3},
+    {"id": "10", "label": "细化概念1", "type": "detail", "description": "描述", "importance": 4, "layer": 4},
+    {"id": "11", "label": "细化概念2", "type": "detail", "description": "描述", "importance": 4, "layer": 4},
+    {"id": "12", "label": "细化概念3", "type": "detail", "description": "描述", "importance": 4, "layer": 4},
+    {"id": "13", "label": "细化概念4", "type": "detail", "description": "描述", "importance": 4, "layer": 4}
   ],
   "links": [
     {"source": "1", "target": "2", "label": "方面包括", "type": "relation", "strength": 8},
-    {"source": "2", "target": "5", "label": "内容包括", "type": "relation", "strength": 6}
+    {"source": "2", "target": "6", "label": "内容包括", "type": "relation", "strength": 6},
+    {"source": "6", "target": "10", "label": "涉及", "type": "relation", "strength": 4}
   ],
   "metadata": {"summary": "概要", "domain": "领域", "keyInsights": "洞察"}
 }
 
 要求：
-- 总共8-10个概念（nodes数组长度8-10）
-- 必须包含layer属性（1、2或3）
+- 总共13-16个概念（nodes数组长度13-16）
+- 必须包含layer属性（1、2、3或4）
 - **关系词要简洁且能读成完整句子**：不含助词（如"的"、"了"），使用2-4字动词短语
   - 推荐：包括、包含、涵盖、导致、引发、促进、推动、应用于、基于、需要等
   - 禁止：单字关系词如"是"、"有"

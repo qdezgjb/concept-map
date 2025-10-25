@@ -8,10 +8,11 @@
  */
 function validateLayerRelation(layerRelation) {
     if (!layerRelation || layerRelation.trim() === '') {
-        return true; // 如果没有层级信息，允许通过（向后兼容）
+        console.log('⚠️ 缺少层级信息，拒绝该三元组');
+        return false; // 如果没有层级信息，拒绝该三元组
     }
     
-    const validRelations = ['L1-L2', 'L2-L3', 'L2-L1', 'L3-L2'];
+    const validRelations = ['L1-L2', 'L2-L3', 'L3-L4', 'L2-L1', 'L3-L2', 'L4-L3'];
     const isValid = validRelations.includes(layerRelation.trim());
     
     if (!isValid) {
@@ -332,6 +333,7 @@ function convertTriplesToConceptData(triples) {
     const layer1Nodes = new Set();
     const layer2Nodes = new Set();
     const layer3Nodes = new Set();
+    const layer4Nodes = new Set();
     
     triples.forEach(triple => {
         const { source, target, layer } = triple;
@@ -342,15 +344,21 @@ function convertTriplesToConceptData(triples) {
         } else if (layer === 'L2-L3') {
             layer2Nodes.add(source);
             layer3Nodes.add(target);
+        } else if (layer === 'L3-L4') {
+            layer3Nodes.add(source);
+            layer4Nodes.add(target);
         } else if (layer === 'L2-L1') {
             layer2Nodes.add(source);
             layer1Nodes.add(target);
         } else if (layer === 'L3-L2') {
             layer3Nodes.add(source);
             layer2Nodes.add(target);
+        } else if (layer === 'L4-L3') {
+            layer4Nodes.add(source);
+            layer3Nodes.add(target);
         } else if (layer === 'L2-L2') {
-            layer2Nodes.add(source);
-            layer2Nodes.add(target);
+            console.log('⚠️ 检测到L2-L2同层连接，跳过:', { source, target, layer });
+            // 拒绝L2-L2同层连接
         }
     });
     
@@ -386,12 +394,23 @@ function convertTriplesToConceptData(triples) {
     console.log('  第一层节点:', Array.from(layer1Nodes));
     console.log('  第二层节点:', Array.from(layer2Nodes));
     console.log('  第三层节点:', Array.from(layer3Nodes));
+    console.log('  第四层节点:', Array.from(layer4Nodes));
+    
+    // 检查"革命背景"节点的层级分配
+    if (layer2Nodes.has('革命背景')) {
+        console.log('✅ "革命背景"被正确分配到L2');
+    } else if (layer3Nodes.has('革命背景')) {
+        console.log('❌ "革命背景"被错误分配到L3');
+    } else {
+        console.log('⚠️ "革命背景"未在明确层级中定义');
+    }
     
     // 辅助函数：判断节点应该在哪一层
     const getNodeLayer = (nodeName) => {
         if (layer1Nodes.has(nodeName)) return 1;
         if (layer2Nodes.has(nodeName)) return 2;
         if (layer3Nodes.has(nodeName)) return 3;
+        if (layer4Nodes.has(nodeName)) return 4;
         
         // 如果节点未在层级中定义，根据连接关系推断
         // 查找该节点作为源或目标的三元组
@@ -400,7 +419,8 @@ function convertTriplesToConceptData(triples) {
         );
         
         if (relatedTriples.length === 0) {
-            return 3; // 默认放在第三层
+            console.log(`⚠️ 节点"${nodeName}"没有相关三元组，默认分配到L4`);
+            return 4; // 默认放在第四层
         }
         
         // 根据连接关系推断层级
@@ -411,16 +431,23 @@ function convertTriplesToConceptData(triples) {
             } else if (triple.layer === 'L2-L3') {
                 if (triple.source === nodeName) return 2;
                 if (triple.target === nodeName) return 3;
+            } else if (triple.layer === 'L3-L4') {
+                if (triple.source === nodeName) return 3;
+                if (triple.target === nodeName) return 4;
             } else if (triple.layer === 'L2-L1') {
                 if (triple.source === nodeName) return 2;
                 if (triple.target === nodeName) return 1;
             } else if (triple.layer === 'L3-L2') {
                 if (triple.source === nodeName) return 3;
                 if (triple.target === nodeName) return 2;
+            } else if (triple.layer === 'L4-L3') {
+                if (triple.source === nodeName) return 4;
+                if (triple.target === nodeName) return 3;
             }
         }
         
-        return 3; // 默认放在第三层
+        console.log(`⚠️ 节点"${nodeName}"无法从三元组推断层级，默认分配到L4`);
+        return 4; // 默认放在第四层
     };
     
     // 处理所有三元组
@@ -490,9 +517,9 @@ function convertTriplesToConceptData(triples) {
         return a.importance - b.importance;
     });
     
-    // ⚠️ 严格限制节点数量：最少8个，最多10个
-    const MAX_NODES = 10;
-    const MIN_NODES = 8;
+    // ⚠️ 严格限制节点数量：最少13个，最多16个
+    const MAX_NODES = 16;
+    const MIN_NODES = 13;
     
     if (nodes.length > MAX_NODES) {
         console.warn(`⚠️ 节点数量超标: ${nodes.length}个 > ${MAX_NODES}个，将进行裁剪`);
@@ -501,20 +528,24 @@ function convertTriplesToConceptData(triples) {
         const layer1NodesArray = nodes.filter(n => n.layer === 1);
         const layer2NodesArray = nodes.filter(n => n.layer === 2);
         const layer3NodesArray = nodes.filter(n => n.layer === 3);
+        const layer4NodesArray = nodes.filter(n => n.layer === 4);
         
-        console.log(`  原始分布: L1=${layer1NodesArray.length}, L2=${layer2NodesArray.length}, L3=${layer3NodesArray.length}`);
+        console.log(`  原始分布: L1=${layer1NodesArray.length}, L2=${layer2NodesArray.length}, L3=${layer3NodesArray.length}, L4=${layer4NodesArray.length}`);
         
-        // 计算可用的节点配额（总共10个 - L1的数量）
+        // 计算可用的节点配额（总共16个 - L1的数量）
         const availableSlots = MAX_NODES - layer1NodesArray.length;
         
-        // 按比例分配 L2 和 L3 的节点数量
-        // 目标：L2=3-4个，L3=4-5个
-        let targetL2 = Math.min(4, layer2NodesArray.length);
-        let targetL3 = Math.min(availableSlots - targetL2, layer3NodesArray.length);
+        // 按比例分配 L2、L3 和 L4 的节点数量
+        // 目标：L2=4-5个，L3=4-5个，L4=4-5个
+        let targetL2 = Math.min(5, layer2NodesArray.length);
+        let targetL3 = Math.min(5, layer3NodesArray.length);
+        let targetL4 = Math.min(availableSlots - targetL2 - targetL3, layer4NodesArray.length);
         
         // 调整以确保总数不超过10
-        while (targetL2 + targetL3 > availableSlots) {
-            if (targetL3 > targetL2) {
+        while (targetL2 + targetL3 + targetL4 > availableSlots) {
+            if (targetL4 > 0) {
+                targetL4--;
+            } else if (targetL3 > targetL2) {
                 targetL3--;
             } else {
                 targetL2--;
@@ -524,6 +555,7 @@ function convertTriplesToConceptData(triples) {
         // 裁剪节点（保留重要度高的）
         const selectedL2 = layer2NodesArray.slice(0, targetL2);
         const selectedL3 = layer3NodesArray.slice(0, targetL3);
+        const selectedL4 = layer4NodesArray.slice(0, targetL4);
         
         // 记录被移除的节点ID
         const removedNodeIds = new Set();
@@ -534,11 +566,14 @@ function convertTriplesToConceptData(triples) {
             if (node.layer === 3 && !selectedL3.includes(node)) {
                 removedNodeIds.add(node.id);
             }
+            if (node.layer === 4 && !selectedL4.includes(node)) {
+                removedNodeIds.add(node.id);
+            }
         });
         
         // 更新节点列表
         nodes.length = 0;
-        nodes.push(...layer1NodesArray, ...selectedL2, ...selectedL3);
+        nodes.push(...layer1NodesArray, ...selectedL2, ...selectedL3, ...selectedL4);
         
         // 移除与被删除节点相关的连线
         const filteredLinks = links.filter(link => {
@@ -549,12 +584,12 @@ function convertTriplesToConceptData(triples) {
         links.length = 0;
         links.push(...filteredLinks);
         
-        console.log(`✅ 裁剪完成: L1=${layer1NodesArray.length}, L2=${selectedL2.length}, L3=${selectedL3.length}, 总计=${nodes.length}个节点`);
+        console.log(`✅ 裁剪完成: L1=${layer1NodesArray.length}, L2=${selectedL2.length}, L3=${selectedL3.length}, L4=${selectedL4.length}, 总计=${nodes.length}个节点`);
         console.log(`   移除了${removedNodeIds.size}个节点, ${links.length}条连线保留`);
     } else if (nodes.length < MIN_NODES) {
         console.warn(`⚠️ 节点数量不足: ${nodes.length}个 < ${MIN_NODES}个`);
     } else {
-        console.log(`✅ 节点数量合格: ${nodes.length}个节点（8-10个范围内）`);
+        console.log(`✅ 节点数量合格: ${nodes.length}个节点（13-16个范围内）`);
     }
     
     // 重新分配节点ID，确保第一层节点的ID最小
@@ -584,7 +619,8 @@ function convertTriplesToConceptData(triples) {
             layerInfo: {
                 layer1Count: layer1Nodes.size,
                 layer2Count: layer2Nodes.size,
-                layer3Count: layer3Nodes.size
+                layer3Count: layer3Nodes.size,
+                layer4Count: layer4Nodes.size
             }
         }
     };
@@ -593,6 +629,7 @@ function convertTriplesToConceptData(triples) {
     console.log('  第一层节点数:', layer1Nodes.size);
     console.log('  第二层节点数:', layer2Nodes.size);
     console.log('  第三层节点数:', layer3Nodes.size);
+    console.log('  第四层节点数:', layer4Nodes.size);
     
     return conceptData;
 }

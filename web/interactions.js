@@ -893,6 +893,25 @@ function createLink(sourceId, targetId) {
             return;
         }
         
+        // 检查层级关系，只允许相邻层之间的连线
+        const sourceNode = currentGraphData.nodes.find(n => n.id === sourceId);
+        const targetNode = currentGraphData.nodes.find(n => n.id === targetId);
+        
+        if (!sourceNode || !targetNode) {
+            showMessage('无法找到源节点或目标节点', 'error');
+            return;
+        }
+        
+        const sourceLayer = sourceNode.layer;
+        const targetLayer = targetNode.layer;
+        
+        // 检查是否为相邻层连接
+        const layerDiff = Math.abs(sourceLayer - targetLayer);
+        if (layerDiff !== 1) {
+            showMessage(`只能连接相邻层的节点（L${sourceLayer}和L${targetLayer}不是相邻层）`, 'warning');
+            return;
+        }
+        
         // 创建新连线
         const newLink = {
             id: `link-${sourceId}-${targetId}`,
@@ -900,7 +919,8 @@ function createLink(sourceId, targetId) {
             target: targetId,
             label: '', // 可以后续添加连线标签
             // 确保使用直线连接，不使用贝塞尔曲线
-            isCurved: false
+            isCurved: false,
+            layer: `L${sourceLayer}-L${targetLayer}` // 添加层级信息
         };
         
         // 添加到数据中

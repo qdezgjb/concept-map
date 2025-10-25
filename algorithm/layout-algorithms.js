@@ -62,7 +62,7 @@ function applyForceDirectedLayoutOnly(graphData) {
     
     // 动态计算画布尺寸
     const maxNodeWidth = Math.max(...nodes.map(node => {
-        const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 25);
+        const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 20);
         return node.width || nodeDimensions.width;
     }));
     
@@ -91,6 +91,11 @@ function applyForceDirectedLayoutOnly(graphData) {
     
     // 调整viewBox
     adjustViewBox(nodes, width, height);
+    
+    // 重新显示焦点问题，确保位置正确
+    if (typeof window.displayFocusQuestion === 'function') {
+        window.displayFocusQuestion();
+    }
     
     console.log('力导向布局完成');
     return { ...graphData, nodes, links };
@@ -318,7 +323,7 @@ function applyAttractiveForces(nodes, links, linkLength, temperature) {
 function applyBoundaryForces(nodes, width, height, temperature) {
     // 统一的边界间距，与层次布局保持一致
     const margin = 200; // 增加左右边界间距，与assignCoordinates保持一致
-    const topMargin = 120; // 调整顶部边界间距，与assignCoordinates保持一致
+    const topMargin = 20; // 调整顶部边界间距，与焦点问题框位置保持一致
     const bottomMargin = 150; // 底部边界间距
     
     // 获取第一级焦点问题节点
@@ -338,7 +343,7 @@ function applyBoundaryForces(nodes, width, height, temperature) {
     
     nodes.forEach(node => {
         // 考虑节点尺寸的边界检查
-        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 25);
+        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 20);
         const nodeWidth = node.width || nodeDimensions.width;
         const nodeHeight = node.height || nodeDimensions.height;
         
@@ -359,7 +364,7 @@ function applyBoundaryForces(nodes, width, height, temperature) {
         // 第一级节点的特殊边界处理 - 强制严格居中
         if (firstLevelNode && node.id === firstLevelNode.id) {
             // 第一级节点强制固定在焦点问题正下方的中心位置
-            const targetY = topMargin + 100; // 与assignCoordinates中保持一致
+            const targetY = topMargin + 160; // 增大与焦点问题的间距
             const targetX = width / 2; // 严格居中
             
             const yDiff = targetY - node.y;
@@ -374,7 +379,7 @@ function applyBoundaryForces(nodes, width, height, temperature) {
             // 普通节点的边界处理，需要避免与第一级节点重叠
             // 上边界检查 - 确保节点不会上移超过第一级节点的位置
             if (firstLevelNode) {
-                const minY = topMargin + 100 + 100; // 第一级节点位置 + 间距
+                const minY = topMargin + 160 + 80; // 第一级节点位置 + 间距（增大间距）
                 if (node.y < minY) {
                     node.vy = (node.vy || 0) + (minY - node.y) * temperature * 0.3;
                 }
@@ -508,8 +513,8 @@ function hasLinkNodeOverlap(link, nodes) {
     if (!source || !target) return false;
     
     // 计算连接线的起点和终点（节点边缘）
-    const sourceDimensions = calculateNodeDimensions(source.label || '', 140, 70, 40);
-    const targetDimensions = calculateNodeDimensions(target.label || '', 140, 70, 40);
+    const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 50, 20);
+    const targetDimensions = calculateNodeDimensions(target.label || '', 100, 50, 20);
     
     const sourceWidth = source.width || sourceDimensions.width;
     const sourceHeight = source.height || sourceDimensions.height;
@@ -522,7 +527,7 @@ function hasLinkNodeOverlap(link, nodes) {
     let startX, startY, endX, endY;
     
     if (isHierarchical) {
-        // 层次连接：下级节点连接到上级节点的下面
+        // 层次连接：连接到节点边框的中点
         if (target.y > source.y) {
             startX = source.x;
             startY = source.y + sourceHeight / 2;
@@ -535,7 +540,7 @@ function hasLinkNodeOverlap(link, nodes) {
             endY = target.y + targetHeight / 2;
         }
     } else {
-        // 同级连接：连接到节点的左右
+        // 同级连接：连接到节点边框的中点
         const dx = target.x - source.x;
         if (dx > 0) {
             startX = source.x + sourceWidth / 2;
@@ -554,7 +559,7 @@ function hasLinkNodeOverlap(link, nodes) {
     for (const node of nodes) {
         if (node.id === link.source || node.id === link.target) continue;
         
-        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 25);
+        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 20);
         const nodeWidth = node.width || nodeDimensions.width;
         const nodeHeight = node.height || nodeDimensions.height;
         
@@ -635,8 +640,8 @@ function calculatePolylinePath(link, nodes) {
     if (!source || !target) return null;
     
     // 计算连接线的起点和终点（节点边缘）
-    const sourceDimensions = calculateNodeDimensions(source.label || '', 140, 70, 40);
-    const targetDimensions = calculateNodeDimensions(target.label || '', 140, 70, 40);
+    const sourceDimensions = calculateNodeDimensions(source.label || '', 100, 50, 20);
+    const targetDimensions = calculateNodeDimensions(target.label || '', 100, 50, 20);
     
     const sourceWidth = source.width || sourceDimensions.width;
     const sourceHeight = source.height || sourceDimensions.height;
@@ -649,7 +654,7 @@ function calculatePolylinePath(link, nodes) {
     let startX, startY, endX, endY;
     
     if (isHierarchical) {
-        // 层次连接：下级节点连接到上级节点的下面
+        // 层次连接：连接到节点边框的中点
         if (target.y > source.y) {
             startX = source.x;
             startY = source.y + sourceHeight / 2;
@@ -662,7 +667,7 @@ function calculatePolylinePath(link, nodes) {
             endY = target.y + targetHeight / 2;
         }
     } else {
-        // 同级连接：连接到节点的左右
+        // 同级连接：连接到节点边框的中点
         const dx = target.x - source.x;
         if (dx > 0) {
             startX = source.x + sourceWidth / 2;
@@ -722,7 +727,7 @@ function calculateWaypoints(startX, startY, endX, endY, nodes, link) {
     for (const node of nodes) {
         if (node.id === link.source || node.id === link.target) continue;
         
-        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 25);
+        const nodeDimensions = window.calculateNodeDimensions(node.label || '', 100, 50, 20);
         const nodeWidth = node.width || nodeDimensions.width;
         const nodeHeight = node.height || nodeDimensions.height;
         
@@ -1076,7 +1081,7 @@ function ensureUniformSpacing(nodes, links) {
         
         // 计算所有节点的实际宽度
         const nodeWidths = levelNodes.map(node => {
-            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 25);
+            const nodeDimensions = calculateNodeDimensions(node.label || '', 100, 50, 20);
             return node.width || nodeDimensions.width;
         });
         
